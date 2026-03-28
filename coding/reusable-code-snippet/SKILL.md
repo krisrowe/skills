@@ -1,6 +1,6 @@
 ---
 name: reusable-code-snippet
-description: "Use when small code patterns (e.g. a reusable function or two, totaling <50 or maybe sometimes up to ~100 lines) appear duplicated across multiple repos, when deciding whether to consolidate shared logic into a library or keep it as managed copies, or when implementing/reviewing a known reusable snippet."
+description: "Use when small code patterns (e.g. a reusable function or two, totaling <50 or maybe sometimes up to ~100 lines) solve generally the same problem across multiple repos with similar logic that differs only in implementation details or in functional aspects that are only arbitrarily different, perhaps due to having been developed at separate times. If a single implementation could serve 2 or more cases — even if it requires tweaking surrounding code or configuration patterns within each repo — use this skill to determine whether to consolidate on shared behaviors, and whether to consolidate code into a shared library (and where), or manage as separate but consistent copies."
 ---
 
 # Reusable Code Snippets
