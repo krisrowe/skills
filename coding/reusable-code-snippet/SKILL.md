@@ -1,6 +1,6 @@
 ---
 name: reusable-code-snippet
-description: "Use when small code patterns (~50 lines or less) appear duplicated across multiple repos, when deciding whether to consolidate shared logic into a library or keep it as managed copies, or when implementing/reviewing a known reusable snippet."
+description: "Use when small code patterns (e.g. a reusable function or two, totaling <50 or maybe sometimes up to ~100 lines) appear duplicated across multiple repos, when deciding whether to consolidate shared logic into a library or keep it as managed copies, or when implementing/reviewing a known reusable snippet."
 ---
 
 # Reusable Code Snippets
@@ -8,7 +8,7 @@ description: "Use when small code patterns (~50 lines or less) appear duplicated
 ## When to Use This Pattern
 
 When a piece of logic is:
-- **Small**: A function or two, under 50 lines total
+- **Small**: Ex: A reusable function or two, totaling <50 or maybe sometimes up to ~100 lines
 - **Reusable**: Needed in 2+ repos
 - **Homeless**: Too small to justify its own package or shared library
 - **Consistency-sensitive**: Divergent copies would cause bugs or confusion
