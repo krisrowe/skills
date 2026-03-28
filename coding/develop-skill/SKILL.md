@@ -51,14 +51,6 @@ These are Claude Code extensions that Gemini ignores:
 - `context: fork` — run in isolated subagent
 - `paths: "**/*.py"` — limit activation to matching files
 
-### aicfg Extension Fields
-
-These are stripped by aicfg during installation and never seen by any tool:
-
-- `invocation: both | slash-only | ambient-only`
-- `only: [claude]` — allowlist (mutually exclusive with exclude)
-- `exclude: [gemini]` — denylist (mutually exclusive with only)
-- `category: coding` — for listing and filtering
 
 ## No Scripts in Skills
 
@@ -124,7 +116,7 @@ No registration or manifest needed beyond the file itself.
 
 1. Create `<skill-name>/SKILL.md` in the appropriate collection folder
 2. Include `name` and `description` in frontmatter (required)
-3. Add `category` matching the collection name
+3. Use only standard agentskills.io fields — no proprietary frontmatter
 4. Test locally:
    - Copy to `~/.claude/skills/<name>/` and verify Claude discovers it
    - Run `gemini skills install <local-path> --consent` and verify Gemini sees it
