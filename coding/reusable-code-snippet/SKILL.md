@@ -1,6 +1,6 @@
 ---
 name: reusable-code-snippet
-description: "Manage small reusable code snippets that need consistency across multiple repos but don't justify a shared library. Use when implementing a known snippet, reviewing snippet consistency, or creating a new snippet skill."
+description: "Use when small code patterns (~50 lines or less) appear duplicated across multiple repos, when deciding whether to consolidate shared logic into a library or keep it as managed copies, or when implementing/reviewing a known reusable snippet."
 ---
 
 # Reusable Code Snippets
