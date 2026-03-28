@@ -33,6 +33,15 @@ ignores them.
 Skills in this repo are pure instructions. If a skill requires deterministic
 script execution, it belongs in a plugin (Claude) or extension (Gemini).
 
+## Tool Dependencies
+
+Skills in a general-purpose marketplace must not hard-depend on tools that
+the average consumer of an open marketplace of skills is unlikely to have
+installed. If a skill needs a non-ubiquitous tool, it must offer 3+
+alternatives so it works for everyone. See the
+[develop-skill](coding/develop-skill/SKILL.md) for the full pattern and
+ordering rules.
+
 ## `.marketplace` Files
 
 `.marketplace` files are optional dotfiles read by `aicfg` for marketplace
