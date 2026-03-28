@@ -1,7 +1,6 @@
 ---
 name: sessions
 description: "List, search, and manage Claude Code sessions across ~/ws and ~ directories."
-category: claude/workflow
 ---
 
 **Note:** If Claude Code now offers built-in session listing, searching, or

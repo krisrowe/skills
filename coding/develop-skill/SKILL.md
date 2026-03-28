@@ -1,7 +1,6 @@
 ---
 name: develop-skill
 description: "Guide for developing portable AI agent skills that work across Claude Code and Gemini CLI. Use when creating a new skill, reviewing a skill for portability, or registering a skill in a marketplace."
-category: coding
 ---
 
 # Developing Portable Agent Skills

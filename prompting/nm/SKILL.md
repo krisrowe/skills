@@ -1,7 +1,7 @@
 ---
 name: nm
 description: "Nevermind — discard the last user prompt as though it was never issued."
-invocation: slash-only
+disable-model-invocation: true
 ---
 
 The user is saying "nevermind." Ignore their immediately preceding prompt as

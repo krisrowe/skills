@@ -1,7 +1,6 @@
 ---
 name: setup-agent-context
 description: "Configure coding agent context for a repo by setting up CLAUDE.md, .gemini/settings.json, and .gitignore rules. Use when starting a new project, onboarding a repo for AI-assisted development, or when asked to set up agent context, configure Claude/Gemini for a repo, or make a repo AI-ready."
-category: coding
 ---
 
 Set up the standard agent context files so that Claude Code and Gemini CLI

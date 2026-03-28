@@ -1,7 +1,7 @@
 ---
 name: proceed
 description: "Continue after an interruption or cancellation as though it did not happen."
-invocation: slash-only
+disable-model-invocation: true
 ---
 
 The user just interrupted or cancelled your previous action (e.g. denied a tool
