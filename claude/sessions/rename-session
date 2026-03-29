@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Rename a Claude Code session by writing a custom-title entry to its JSONL file.
+
+Usage:
+  rename-session <session-id-or-prefix> <new-name>
+
+Writes the same {"type": "custom-title", "customTitle": "..."} entry that
+Claude Code's /rename command does. If the session already has a name,
+it is replaced (a new custom-title entry takes precedence as the last one wins).
+
+Examples:
+  rename-session a1b2c3d4 my-cool-session       # prefix match
+  rename-session a1b2c3d4 "refactored auth"     # names can have spaces
+"""
+
+import json
+import os
+import sys
+import glob
+
+PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
+
+
+def find_session_file(prefix: str) -> str | None:
+    """Find a session JSONL file by ID or prefix."""
+    for jsonl in glob.glob(os.path.join(PROJECTS_DIR, "*", f"{prefix}*.jsonl")):
+        return jsonl
+    return None
+
+
+def get_current_name(jsonl_path: str) -> str | None:
+    """Read the last custom-title entry from a session file."""
+    name = None
+    try:
+        with open(jsonl_path, "r") as f:
+            for line in f:
+                try:
+                    obj = json.loads(line)
+                    if obj.get("type") == "custom-title":
+                        name = obj.get("customTitle")
+                except json.JSONDecodeError:
+                    continue
+    except Exception:
+        pass
+    return name
+
+
+def rename_session(jsonl_path: str, new_name: str):
+    """Append a custom-title entry to the session JSONL."""
+    session_id = os.path.basename(jsonl_path)[:-6]  # strip .jsonl
+    entry = {
+        "type": "custom-title",
+        "customTitle": new_name,
+        "sessionId": session_id,
+    }
+    with open(jsonl_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def main():
+    if len(sys.argv) != 3:
+        print("Usage: rename-session <session-id-or-prefix> <new-name>", file=sys.stderr)
+        sys.exit(1)
+
+    prefix = sys.argv[1]
+    new_name = sys.argv[2]
+
+    jsonl_path = find_session_file(prefix)
+    if not jsonl_path:
+        print(f"No session found matching: {prefix}", file=sys.stderr)
+        sys.exit(1)
+
+    session_id = os.path.basename(jsonl_path)[:-6]
+    current_name = get_current_name(jsonl_path)
+
+    if current_name:
+        print(f"Session {session_id[:8]}: \"{current_name}\" -> \"{new_name}\"")
+    else:
+        print(f"Session {session_id[:8]}: (unnamed) -> \"{new_name}\"")
+
+    rename_session(jsonl_path, new_name)
+    print("Done.")
+
+
+if __name__ == "__main__":
+    main()

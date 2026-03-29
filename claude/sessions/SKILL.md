@@ -1,6 +1,6 @@
 ---
 name: sessions
-description: "List, search, and manage Claude Code sessions across ~/ws and ~ directories."
+description: "List, search, and manage Claude Code sessions across all project directories."
 ---
 
 **Note:** If Claude Code now offers built-in session listing, searching, or

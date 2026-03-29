@@ -1,0 +1,236 @@
+#!/usr/bin/env python3
+"""List recent Claude Code sessions across workspace directories.
+
+Usage:
+  claude-sessions                          # show 12 most recent sessions
+  claude-sessions 20                       # show 20 most recent
+  claude-sessions -v                       # verbose: show full session IDs
+  claude-sessions --json                   # output as JSON array
+  claude-sessions --summary-max-length=500 # longer summaries (default: 80)
+  claude-sessions --summary-contains=foo   # filter to sessions matching string
+  claude-sessions --count=20               # same as positional count argument
+
+Sessions named via /rename in Claude Code show their title instead of the
+first message. Use --json to see both "name" and "summary" fields.
+
+Also available as /sessions skill inside Claude Code.
+"""
+
+import argparse
+import json
+import os
+import sys
+import datetime
+
+PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
+HOME = os.path.expanduser("~")
+DEFAULT_LIMIT = 12
+
+
+def decode_project_dir(dirname: str) -> str:
+    """Convert encoded project dir name back to a filesystem path.
+
+    Claude encodes paths by replacing / with -.
+    e.g. -Users-USER-projects-my-app -> /Users/USER/projects/my-app
+
+    We resolve ambiguity (hyphens in real dir names) by checking which
+    paths actually exist on disk, greedily matching from the left.
+    """
+    # Strip leading dash (represents leading /)
+    raw = dirname.lstrip("-")
+    parts = raw.split("-")
+
+    # Greedy reconstruction: accumulate segments, checking existence
+    resolved = "/"
+    i = 0
+    while i < len(parts):
+        # Try single segment first
+        candidate = os.path.join(resolved, parts[i])
+        if os.path.isdir(candidate):
+            resolved = candidate
+            i += 1
+        else:
+            # Try accumulating with hyphens (for dirs like "food-agent")
+            found = False
+            for j in range(len(parts), i, -1):
+                hyphenated = "-".join(parts[i:j])
+                candidate = os.path.join(resolved, hyphenated)
+                if os.path.isdir(candidate):
+                    resolved = candidate
+                    i = j
+                    found = True
+                    break
+            if not found:
+                # Fallback: just join remaining with hyphens
+                resolved = os.path.join(resolved, "-".join(parts[i:]))
+                break
+
+    return resolved
+
+
+def friendly_path(path: str) -> str:
+    """Replace home dir with ~."""
+    if path.startswith(HOME):
+        return "~" + path[len(HOME):]
+    return path
+
+
+def format_age(mtime: float) -> str:
+    """Human-readable age string."""
+    now = datetime.datetime.now()
+    mod_dt = datetime.datetime.fromtimestamp(mtime)
+    delta = now - mod_dt
+    if delta.total_seconds() < 60:
+        return "just now"
+    elif delta.total_seconds() < 3600:
+        return f"{int(delta.total_seconds() // 60)}m ago"
+    elif delta.total_seconds() < 86400:
+        return f"{int(delta.total_seconds() // 3600)}h ago"
+    elif delta.days == 1:
+        return "yesterday"
+    else:
+        return f"{delta.days}d ago"
+
+
+def parse_session(jsonl_path: str) -> tuple[str, str | None]:
+    """Extract first user message and custom title from a session JSONL file.
+
+    Returns (summary, name) where name is from /rename (custom-title) if set.
+    """
+    summary = ""
+    name = None
+    try:
+        with open(jsonl_path, "r") as f:
+            for line in f:
+                try:
+                    obj = json.loads(line)
+                    if not summary and obj.get("type") == "user" and obj.get("message", {}).get("role") == "user":
+                        content = obj["message"]["content"]
+                        if isinstance(content, str):
+                            summary = content.replace("\n", " ").strip()
+                        elif isinstance(content, list):
+                            for part in content:
+                                if isinstance(part, dict) and part.get("type") == "text":
+                                    summary = part["text"].replace("\n", " ").strip()
+                                    break
+                    elif obj.get("type") == "custom-title":
+                        name = obj.get("customTitle")
+                except json.JSONDecodeError:
+                    continue
+    except Exception:
+        pass
+    return summary, name
+
+
+def collect_sessions(summary_contains: str | None = None) -> list[dict]:
+    """Collect all sessions, optionally filtered by summary substring."""
+    if not os.path.isdir(PROJECTS_DIR):
+        return []
+
+    sessions = []
+    for proj_dir_name in os.listdir(PROJECTS_DIR):
+        proj_path = os.path.join(PROJECTS_DIR, proj_dir_name)
+        if not os.path.isdir(proj_path):
+            continue
+
+        real_path = decode_project_dir(proj_dir_name)
+        display_path = friendly_path(real_path)
+
+        for f in os.listdir(proj_path):
+            if not f.endswith(".jsonl"):
+                continue
+            jsonl_path = os.path.join(proj_path, f)
+            session_id = f[:-6]  # strip .jsonl
+            mtime = os.path.getmtime(jsonl_path)
+            summary, name = parse_session(jsonl_path)
+
+            # Filter checks both name and summary
+            if summary_contains:
+                needle = summary_contains.lower()
+                if needle not in summary.lower() and (not name or needle not in name.lower()):
+                    continue
+
+            sessions.append({
+                "path": display_path,
+                "session_id": session_id,
+                "modified": mtime,
+                "age": format_age(mtime),
+                "summary": summary,
+                "name": name,
+            })
+
+    sessions.sort(key=lambda x: x["modified"], reverse=True)
+    return sessions
+
+
+def output_json(sessions: list[dict], summary_max_length: int):
+    """Print sessions as a JSON array."""
+    out = []
+    for s in sessions:
+        summary = s["summary"]
+        if len(summary) > summary_max_length:
+            summary = summary[:summary_max_length - 3] + "..."
+        entry = {
+            "session_id": s["session_id"],
+            "path": s["path"],
+            "age": s["age"],
+            "modified": s["modified"],
+            "summary": summary,
+        }
+        if s.get("name"):
+            entry["name"] = s["name"]
+        out.append(entry)
+    print(json.dumps(out, indent=2))
+
+
+def output_table(sessions: list[dict], verbose: bool, summary_max_length: int):
+    """Print sessions as a human-readable table."""
+    if not sessions:
+        print("No sessions found.")
+        return
+
+    path_width = max(len(s["path"]) for s in sessions)
+    path_width = max(path_width, 15)
+    path_width = min(path_width, 35)
+
+    # For table mode, cap summary at the lesser of summary_max_length and available width
+    table_max = max(summary_max_length, 80 - path_width)
+
+    print(f"{'#':<3} {'Age':<12} {'Path':<{path_width}} Summary")
+    print("-" * (3 + 12 + path_width + max(table_max, 60)))
+    for i, s in enumerate(sessions, 1):
+        display = s["name"] if s.get("name") else s["summary"]
+        if s.get("name"):
+            display = f"[{display}]"
+        if len(display) > table_max:
+            display = display[:table_max - 3] + "..."
+        path = s["path"]
+        if len(path) > path_width:
+            path = "..." + path[-(path_width - 3):]
+        print(f"{i:<3} {s['age']:<12} {path:<{path_width}} {display}")
+
+    print()
+    print("Resume commands:")
+    for i, s in enumerate(sessions, 1):
+        sid = s["session_id"] if verbose else s["session_id"][:8]
+        print(f"  {i:>2}. cd {s['path']} && claude -r {sid}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("count_pos", nargs="?", type=int, default=None, help="Number of sessions (positional)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Show full session IDs")
+    parser.add_argument("--json", action="store_true", help="Output as JSON array")
+    parser.add_argument("--count", type=int, default=None, help="Number of sessions to show")
+    parser.add_argument("--summary-max-length", type=int, default=80, help="Max summary length (default: 80)")
+    parser.add_argument("--summary-contains", type=str, default=None, help="Filter sessions by substring in summary")
+    args = parser.parse_args()
+
+    limit = args.count or args.count_pos or DEFAULT_LIMIT
+    sessions = collect_sessions(summary_contains=args.summary_contains)
+    sessions = sessions[:limit]
+
+    if args.json:
+        output_json(sessions, args.summary_max_length)
+    else:
+        output_table(sessions, args.verbose, args.summary_max_length)
