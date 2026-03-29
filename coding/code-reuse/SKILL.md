@@ -65,10 +65,21 @@ def retry_with_backoff(fn, max_retries=3):
 ### Creating a New Snippet Skill
 
 1. Create a new skill directory: `coding/<snippet-name>/SKILL.md`
-2. Include the canonical implementation with the comment block
-3. Document: inputs, outputs, assumptions, version
-4. Use concrete examples showing YAML/JSON/config values — avoid jargon
-   like "scalars" or "dicts" without showing what that means in practice
+2. Include proper frontmatter:
+   ```yaml
+   ---
+   name: <snippet-name>
+   description: "Short description of what the snippet does and when to use it."
+   metadata:
+     version: "1"
+   ---
+   ```
+3. Include the canonical implementation with the comment block
+4. Document: inputs, outputs, assumptions, version
+5. **NEVER reference specific consuming repos or projects in the skill.**
+   Usage examples must be generic (e.g., `from my_app.sdk.common...`).
+   The skill is reusable — it must not contain references that tie it
+   to any particular codebase.
 
 ### Reviewing Snippet Consistency
 
