@@ -52,13 +52,13 @@ Every snippet placement MUST include a header comment identifying the
 source skill and version (adapted to the target language's comment syntax):
 
 ```python
-# --- Reusable Snippet: layered-yaml-merge v1 ---
-# Managed by skill: layered-yaml-merge
+# --- Reusable Snippet: retry-with-backoff v1 ---
+# Managed by skill: retry-with-backoff
 # Keep consistent with the latest version of this snippet.
 # Do not modify without updating the skill definition.
 # ------------------------------------------------
 
-def layered_merge(base, override):
+def retry_with_backoff(fn, max_retries=3):
     ...
 ```
 
