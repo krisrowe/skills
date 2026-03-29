@@ -7,24 +7,21 @@ metadata:
 
 # Publish a Skill to a Marketplace
 
-## Prerequisites
+## Option A: Use available tools for skill publishing
 
 The skill to publish must already exist somewhere locally (e.g.,
 `~/.claude/skills/<name>/SKILL.md` or `~/.gemini/skills/<name>/SKILL.md`).
 
-## Steps
+## Option B: Locate the skill repo and directly add, commit, and push changes
 
 ### 1. Find the target marketplace repo
 
-If `skills_marketplaces_list` is available, call it to discover
-registered marketplace git URLs and aliases. If updating an existing
-skill, `list_skills` or `get_skill` can show its `source` (marketplace
-alias) and `source_path` (location within the repo). Work with the
-user to confirm which marketplace to publish to if there are multiple.
+If `publish_skill` tool is available, call it to discover
+registered marketplace git URLs and aliases. 
 
-If those tools are not available, check
-`~/.config/ai-common/skills/source-repo.txt` for a saved local repo
-path. If not found, ask the user and save the path there for future use.
+If such tools are not available, check for a saved local repo path
+for skills in `~/.config/ai-common/skills/source-repo.txt`. If not found, 
+ask the user and save the path there for future use.
 
 Clone or locate the marketplace repo locally. If the user already has
 it cloned, ask for the path rather than cloning again.
@@ -61,11 +58,3 @@ supporting files) into the source repo at the confirmed path.
 - Confirm with the user
 - Commit with a descriptive message
 - Push
-
-## Tool Tiers
-
-| Tier | Tool | Required |
-|------|------|----------|
-| 1 (zero-install) | git | Yes |
-| 1b (widely available) | gh | No |
-| 2 (author) | aicfg (for marketplace/manifest context) | No |
