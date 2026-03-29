@@ -1,9 +1,10 @@
 ---
 name: author-github-issue
 description: >-
-  Use when creating or updating a GitHub issue — whether the user asks
-  directly or the agent decides one should be filed for a bug, feature,
-  design decision, or any other trackable item.
+  Use when creating (gh issue create), editing (gh issue edit), or
+  commenting on (gh issue comment) a GitHub issue — whether the user
+  asks directly or the agent decides one should be filed for a bug,
+  feature, design decision, or any other trackable item.
 ---
 
 # Authoring GitHub Issues
