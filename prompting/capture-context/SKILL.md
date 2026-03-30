@@ -241,9 +241,9 @@ performed. Present updated Fully Captured and Not Yet Captured lists.
 
 If anything remains in Not Yet Captured, repeat Phases 2–5.
 
-Continue looping until List 2 is completely empty — every item of value from
-the session is verified as captured. Only then report that the session is safe
-to exit.
+Continue looping until Not Yet Captured is completely empty — every item of
+value from the session is verified as captured. Only then report that the
+session is safe to exit.
 
 **Do not skip this loop.** The first pass routinely misses items. Common things
 missed on first pass:
