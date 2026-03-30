@@ -44,7 +44,7 @@ Instructions for the agent...
 
 These are Claude Code extensions that Gemini ignores:
 
-- `disable-model-invocation: true` — slash-only, agent won't auto-invoke
+- `disable-model-invocation: true` — user-only / slash-only, agent won't auto-invoke. Also blocks programmatic agent invocation via the Skill tool — only the user typing the slash command works.
 - `user-invocable: false` — ambient-only, hidden from slash menu
 - `allowed-tools: Bash, Read` — pre-approved tools
 - `argument-hint: "[pattern]"` — autocomplete hint
