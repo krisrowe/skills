@@ -24,10 +24,11 @@ The agent MUST produce two distinct reports for every invocation:
 #### Report A: The Polished Advisory (Stakeholder-Facing)
 - **Format:** Saved as a local `.md` file.
 - **Content:** Professional, narrative, and authoritative.
-- **Verification:** Woven into the text using hypertext and quotes. No footnotes or raw audit data.
-- **Creative Examples:**
-    - "As confirmed by [Apigee's official documentation](URL), the policy is strictly bound to its own local bundle..."
-    - "This behavior is consistent with the [spec's runtime requirements](URL), where we find the following quote: '...'"
+- **Expertise Presentation:** DO NOT include verification dates, methods, or "I found this today" metadata. Present findings with the authority of a seasoned consultant.
+- **Citations:** Use clean inline hyperlinks and verbatim quotes to back claims.
+    - ✅ "As detailed in [Apigee's official documentation](URL), the policy is strictly bound to its own local bundle..."
+    - ✅ "This behavior is consistent with the [spec's runtime requirements](URL), where we find the following quote: '...'"
+    - ❌ "Verified: 2026-03-30 via curl..." (MOVE TO REPORT B)
 
 #### Report B: The Verification Audit & Gap Analysis (Author-Facing)
 - **Format:** Rendered as a response in the chat session.
@@ -47,10 +48,7 @@ The agent MUST produce two distinct reports for every invocation:
     - **Caveats:** Only include critical constraints for the stakeholder (e.g., version limits).
 
 ### 4. Privacy & Portability
-- **Anonymity:** NEVER include customer names, specific organization identifiers, or the user's employer details.
-- **Path Neutrality:** Never include local absolute paths or machine-specific locations. Use generic placeholders like `<PROJECT_ROOT>` or `<CLIENT_ORG>`.
-- **No Signatures:** Avoid personal signatures or platform-specific metadata.
-- **No Dependencies:** Rely on standard primitives (curl, grep, etc.) as the baseline.
+- **Path Neutrality:** Never include local absolute paths or machine-specific locations. Use generic placeholders like `<PROJECT_ROOT>`.
 
 ## Workflow
 
@@ -58,4 +56,5 @@ The agent MUST produce two distinct reports for every invocation:
 2.  **Verification:** Execute the verification hierarchy for every assertion.
 3.  **Synthesis:** Construct **Report A** (.md file) with polished citations.
 4.  **Audit:** Construct **Report B** (chat response) with the full verification audit trail.
-5.  **Delivery:** Provide the local file path for Report A and display Report B in the chat.
+5.  **Review:** After generating the reports, the agent MUST review the output and explicitly call out to the user any claims that lacked a source or were not fully ascertained.
+6.  **Delivery:** Provide the local file path for Report A and display Report B in the chat.
