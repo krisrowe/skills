@@ -21,7 +21,7 @@ Review the ENTIRE conversation history — every message, tool call, plan,
 decision, suggestion, research result, and user request. Then present two
 bulleted lists:
 
-### List 1: Fully Captured
+### Fully Captured
 
 Items where ALL of the following are true:
 - The work is complete in code, configuration, or documentation AND
@@ -32,7 +32,7 @@ Items where ALL of the following are true:
 
 For each item, state what it is and where it is captured.
 
-### List 2: Not Yet Captured
+### Not Yet Captured
 
 Items where ANY of the following are true:
 - Work was discussed, planned, or designed but not implemented and not tracked
@@ -44,6 +44,17 @@ Items where ANY of the following are true:
 - Partial work was done but the remaining steps are not documented
 
 For each item, state what is missing and why it matters.
+
+### Suggested session name
+
+After presenting both lists, suggest a short, descriptive name for this session
+(e.g., "capture-context-skill-creation", "auth-middleware-refactor"). This
+helps the user label or rename the session for future reference before exiting.
+If the agent tool supports naming or renaming sessions, include the command.
+
+This is especially useful when List 2 is empty or the proposed actions are
+minor — the user may decide the session is safe to exit right here without
+waiting for further phases. A good session name makes it findable later.
 
 ## Phase 2: Where to Store
 
@@ -226,9 +237,9 @@ that would help the user (or an agent) resume without loss.
 
 After completing Phase 4, return to Phase 1 and repeat the full audit from
 scratch. Review the entire conversation again, including the capture work just
-performed. Present updated List 1 and List 2.
+performed. Present updated Fully Captured and Not Yet Captured lists.
 
-If List 2 is non-empty, repeat Phases 2–5.
+If anything remains in Not Yet Captured, repeat Phases 2–5.
 
 Continue looping until List 2 is completely empty — every item of value from
 the session is verified as captured. Only then report that the session is safe
