@@ -64,7 +64,9 @@ def retry_with_backoff(fn, max_retries=3):
 
 ### Creating a New Snippet Skill
 
-1. Create a new skill directory: `coding/<snippet-name>/SKILL.md`
+1. Create the skill locally: `~/.claude/skills/<snippet-name>/SKILL.md`
+   (NOT under a collection subdirectory — that structure is only for
+   marketplace repos, not local installs)
 2. Include proper frontmatter:
    ```yaml
    ---
