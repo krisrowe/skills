@@ -48,7 +48,7 @@ Development workflow skills.
 
 | Skill | Description |
 |-------|-------------|
-| [develop-unit-tests](coding/develop-unit-tests/SKILL.md) | Sociable unit testing with dir isolation and no mocks |
+| [sociable-unit-tests](coding/sociable-unit-tests/SKILL.md) | Sociable unit testing with dir isolation and no mocks |
 | [develop-skill](coding/develop-skill/SKILL.md) | Build portable cross-platform skills |
 | [setup-agent-context](coding/setup-agent-context/SKILL.md) | Configure CLAUDE.md and .gemini/settings.json for a repo |
 | [author-github-issue](coding/author-github-issue/SKILL.md) | Structured GitHub issue authoring with privacy rules |

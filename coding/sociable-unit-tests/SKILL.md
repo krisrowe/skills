@@ -1,5 +1,5 @@
 ---
-name: develop-unit-tests
+name: sociable-unit-tests
 description: "Guide for writing sociable unit tests with directory isolation, no mocks, and transaction-level testing. Use when writing tests, reviewing test quality, or setting up test infrastructure for a Python project."
 ---
 
