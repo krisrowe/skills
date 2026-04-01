@@ -36,6 +36,12 @@
     "path": "coding/develop-skill"
   },
   {
+    "name": "prioritize-github-issues",
+    "description": "Scan GitHub issues across all repos and orgs the user belongs to, ranked by priority labels (P0-P9). Use when the user wants to see their issue backlog, triage priorities, or reprioritize issues across repos.",
+    "category": "coding",
+    "path": "coding/prioritize-github-issues"
+  },
+  {
     "name": "publish-skill",
     "description": "Use after creating or updating a skill to publish it to a marketplace repo. Guides finding the skills source repo, validating the skill, placing it in the right collection, and committing/pushing.",
     "category": "coding",
