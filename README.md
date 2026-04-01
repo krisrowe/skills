@@ -4,20 +4,18 @@ Cross-platform AI agent skills for [Claude Code](https://code.claude.com/) and [
 
 ## Quick Start
 
-### Claude Code
+Install [em](https://echomodel.ai) for skill management across both Claude Code and Gemini CLI:
 
 ```bash
-# Register this marketplace
+pipx install echomodel
 em skills marketplace register echoskill https://github.com/echo-skill/echoskill.git
-
-# Install a skill
 em skills install capture-context
-
-# List available skills
 em skills list
 ```
 
-### Gemini CLI
+### Native Gemini CLI install
+
+Gemini CLI also supports native skill installation without `em`:
 
 ```bash
 # Install all skills from a collection
@@ -25,18 +23,6 @@ gemini skills install https://github.com/echo-skill/echoskill.git --path coding
 
 # Install one skill
 gemini skills install https://github.com/echo-skill/echoskill.git --path prompting/nm
-```
-
-Gemini can install an entire collection at once — all skills under a folder are installed in one command.
-
-### echomodel CLI (optional)
-
-[em](https://echomodel.ai) provides cross-platform skill management for both Claude Code and Gemini CLI from a single tool. Not required — you can manage skills natively with each platform.
-
-```bash
-pipx install echomodel
-em skills marketplace register echoskill https://github.com/echo-skill/echoskill.git
-em skills install capture-context
 ```
 
 ---
