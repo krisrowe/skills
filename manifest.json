@@ -90,6 +90,12 @@
     "path": "prompting/capture-context"
   },
   {
+    "name": "extend-document",
+    "description": "Safely extend or integrate content into an existing document without losing original content. Use when appending research findings, session notes, or new sections to an existing .md file. Ensures bidirectional integrity through iterative commits and diffs.",
+    "category": "prompting",
+    "path": "prompting/extend-document"
+  },
+  {
     "name": "nm",
     "description": "Nevermind \u2014 discard the last user prompt as though it was never issued.",
     "category": "prompting",
