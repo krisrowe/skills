@@ -107,3 +107,25 @@ Follow these steps in order. Do not skip or combine steps.
 - **Preserve original voice.** Don't rewrite existing content to match new content's style.
 - **Additions over modifications.** Prefer adding new sections over editing existing ones.
 - **Report what changed.** After completion, summarize: what was added, what (if anything) was modified, and confirm nothing was lost.
+
+## Common pitfalls
+
+- **Agents drop details on edit.** This is the most common failure mode.
+  When an agent edits any file — markdown, code, config — the replacement
+  text frequently omits details that were in the original: comments,
+  docstrings, nuanced phrasing, edge case notes, inline documentation.
+  The iterative diff process exists specifically to catch this. Do not
+  trust that an edit preserved everything — always diff and verify.
+- **Lost comments and docstrings.** A specific case of the above. When
+  editing code files, the updated version often lacks the same level of
+  inline documentation as the original. After every edit to a code file,
+  specifically review whether comments, docstrings, or inline documentation
+  were dropped. If so, restore them before proceeding.
+- **Summarization creep.** When integrating verbose source material, resist
+  the urge to summarize existing document content to "make room." Add, don't
+  condense.
+- **Style normalization.** Don't reformat or restyle existing content to match
+  the new content. Preserve the original voice and formatting.
+- **Applies to all file types.** This skill is framed around .md files but
+  the same bidirectional integrity process applies to code, config, YAML,
+  JSON, or any other document where edits risk losing prior detail.
