@@ -100,13 +100,13 @@ gemini skills install <url> --path coding
 Or individually:
 ```bash
 gemini skills install <url> --path coding/develop-skill
-aicfg skills install develop-skill
+em skills install develop-skill
 ```
 
 ## Installation
 
-Skills are installed via `aicfg skills install` (cross-platform) or
-`gemini skills install` (Gemini native). Claude has no skill CLI — aicfg
+Skills are installed via `em skills install` (cross-platform) or
+`gemini skills install` (Gemini native). Claude has no skill CLI — `em`
 writes directly to `~/.claude/skills/`.
 
 Both tools discover skills by scanning directories for `SKILL.md` files.
@@ -121,7 +121,7 @@ No registration or manifest needed beyond the file itself.
    - Copy to `~/.claude/skills/<name>/` and verify Claude discovers it
    - Run `gemini skills install <local-path> --consent` and verify Gemini sees it
 5. Commit and push to the marketplace repo
-6. Verify: `aicfg skills list` shows it after marketplace update
+6. Verify: `em skills list` shows it after marketplace update
 
 ## Writing Good Skill Instructions
 

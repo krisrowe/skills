@@ -3,7 +3,7 @@
 ## Repo Structure
 
 The structure of this repo is deliberate and must be maintained for
-compatibility with `gemini skills install` and `aicfg skills install`.
+compatibility with `gemini skills install` and `em skills install`.
 
 - Each skill is a directory containing a `SKILL.md` file
 - Skills are organized into **collections** (folders)
@@ -44,6 +44,6 @@ ordering rules.
 
 ## `.marketplace` Files
 
-`.marketplace` files are optional dotfiles read by `aicfg` for marketplace
-metadata (name, namespace). They are ignored by `gemini skills install` and
-Claude Code. Do not remove them.
+`.marketplace` files are optional dotfiles read by `em` for marketplace
+metadata (ratings, quality scores, summaries). They are ignored by
+`gemini skills install` and Claude Code. Do not remove them.
