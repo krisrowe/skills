@@ -107,9 +107,9 @@ Claude-specific frontmatter fields (e.g., `disable-model-invocation`,
 `allowed-tools`, `context`) are ignored by Gemini. Verified: installed a skill
 with Claude-specific fields to Gemini — installed and listed without error.
 
-## aicfg
+## echomodel CLI (em)
 
-`aicfg skills install <name>` provides unified cross-platform installation:
+`em skills install <name>` provides unified cross-platform installation:
 - Resolves skills from registered marketplaces
 - Fetches latest from git with 5s timeout, falls back to cache
 - Writes to `~/.claude/skills/` (direct) and delegates to `gemini skills install` for Gemini
