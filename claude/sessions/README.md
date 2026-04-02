@@ -11,4 +11,3 @@ pipx install echomodel
 em skills install sessions
 ```
 
-See the [echoskill README](../../README.md#quick-start) for full setup.

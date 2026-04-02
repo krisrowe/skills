@@ -4,7 +4,7 @@ Safely add content to an existing document without losing what's already there. 
 
 Works with or without a git repo. In a repo, uses commits and `git diff`. Without one, backs up to a temp directory and uses `diff` for the same guarantees.
 
-Cross-platform — works with any AI coding agent that supports the SKILL.md format.
+Cross-platform — works with any AI agent that supports the SKILL.md format.
 
 ## Install
 
@@ -13,4 +13,3 @@ pipx install echomodel
 em skills install extend-document
 ```
 
-See the [echoskill README](../../README.md#quick-start) for full setup.

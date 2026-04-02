@@ -4,7 +4,7 @@ End every session clean. This skill audits your entire conversation for undone w
 
 Runs in phases: audit what's captured vs not, choose storage destinations (GitHub issues, TODOS files, private notes), execute, then re-audit until nothing is left behind.
 
-Cross-platform — works with any AI coding agent that supports the SKILL.md format.
+Cross-platform — works with any AI agent that supports the SKILL.md format.
 
 ## Install
 
@@ -13,4 +13,3 @@ pipx install echomodel
 em skills install capture-context
 ```
 
-See the [echoskill README](../../README.md#quick-start) for full setup.

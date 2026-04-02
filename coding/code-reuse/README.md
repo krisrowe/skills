@@ -4,7 +4,7 @@ Not every duplicated pattern deserves a shared library. This skill gives your ag
 
 Covers the tradeoffs between managed snippet copies and shared packages, where to place shared code, and how to avoid premature abstractions that create more coupling than they solve.
 
-Cross-platform — works with any AI coding agent that supports the SKILL.md format.
+Cross-platform — works with any AI agent that supports the SKILL.md format.
 
 ## Install
 
@@ -19,4 +19,3 @@ Or install directly with Gemini CLI:
 gemini skills install https://github.com/echo-skill/echoskill.git --path coding/code-reuse
 ```
 
-See the [echoskill README](../../README.md#quick-start) for full setup.

@@ -6,7 +6,7 @@ More importantly, it helps you use GitHub issues as a **session-independent, age
 
 Your agent can identify uncaptured work in the current session and help you file it as structured issues (using the [author-github-issue](../author-github-issue/SKILL.md) skill for professionalism, privacy, and security). It then iteratively re-evaluates to ensure nothing of value was missed — no rubber-stamping "done" after one pass.
 
-Cross-platform — works with any AI coding agent that supports the SKILL.md format. Requires `gh` CLI.
+Cross-platform — works with any AI agent that supports the SKILL.md format. Requires `gh` CLI.
 
 ## Install
 
@@ -15,4 +15,3 @@ pipx install echomodel
 em skills install prioritize-github-issues
 ```
 
-See the [echoskill README](../../README.md#quick-start) for full setup.
