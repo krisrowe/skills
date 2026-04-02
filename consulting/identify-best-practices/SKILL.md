@@ -1,13 +1,15 @@
 ---
-name: reconstruct-best-practices
-description: Help the user pressure-test their approach against industry best practices. Reconstruct their perspective faithfully, then critically compare it to how leaders in the relevant problem space think, what language they use, what patterns they follow, and what pitfalls they've already accounted for.
+name: identify-best-practices
+description: Identify and compare against industry best practices for an approach, design, architecture, or workflow. Use when the user asks "am I doing this right?", "am I thinking about this right?", "how do others solve this?", "what are others doing?", "what am I missing?", "is there a better way to do this?", "are there known pitfalls with my approach?", "am I reinventing the wheel?", "is there an established library, framework, tool, standard, pattern, or even a term for this that I should know about?", or wants to sanity-check or pressure-test their approach.
 metadata:
   version: "1.0.0"
 ---
 
-# Reconstruct Best Practices
+# Identify Best Practices
 
 When the user invokes this skill, they are saying: "I have an approach to a problem. I want to know how it holds up against what the best people in this space are actually doing."
+
+Identify and compare against industry best practices for an approach, design, architecture, or workflow. Understand the user's perspective, then research how leaders in the relevant problem space think, what patterns and tools they use, what language describes the problem, what's considered an antipattern, and what the user may not be accounting for. Use when the user asks "am I doing this right?", "am I thinking about this right?", "how do others solve this?", "what are others doing?", "what am I missing?", "is there a better way to do this?", "are there known pitfalls with my approach?", "am I reinventing the wheel?", "is there an established library, framework, tool, standard, pattern, or even a term for this that I should know about?", or wants to sanity-check or pressure-test their approach.
 
 ## What this skill does
 
@@ -151,4 +153,4 @@ When the user says things like:
 - "What am I missing?"
 - "Help me think through whether this approach makes sense"
 - "I have a way I want to do this but I want to sanity-check it"
-- Or explicitly invokes `/reconstruct-best-practices`
+- Or explicitly invokes `/identify-best-practices`
