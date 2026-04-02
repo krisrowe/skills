@@ -27,6 +27,15 @@ gemini skills install https://github.com/echo-skill/echoskill.git --path coding
 gemini skills install https://github.com/echo-skill/echoskill.git --path prompting/nm
 ```
 
+### Platform targeting
+
+By default, `em` installs to all supported platforms. To install to one platform only:
+
+```bash
+em skills install capture-context --target claude
+em skills install capture-context --target gemini
+```
+
 ---
 
 ## Collections
