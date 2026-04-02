@@ -11,8 +11,8 @@ compatibility with `gemini skills install` and `em skills install`.
 - `gemini skills install <url> --path <collection>` scans within that collection
 - `gemini skills install <url> --path <collection>/<skill>` installs one skill
 
-See [docs/TESTING.md](docs/TESTING.md) for detailed behavior documentation
-of how skill installation works across platforms.
+See the [compatibility guide](docs/COMPATIBILITY.md) for how this repo's
+structure works with major skill consumers across platforms.
 
 ## Adding a Skill
 
