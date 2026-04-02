@@ -4,7 +4,7 @@ Built a skill? This one walks your agent through publishing it — finding the r
 
 Handles the mundane parts so you focus on the skill content, not the publishing mechanics.
 
-Cross-platform — works with any AI coding agent that supports the SKILL.md format.
+Cross-platform — works with any AI agent that supports the SKILL.md format.
 
 ## Install
 
@@ -19,4 +19,3 @@ Or install directly with Gemini CLI:
 gemini skills install https://github.com/echo-skill/echoskill.git --path coding/publish-skill
 ```
 
-See the [echoskill README](../../README.md#quick-start) for full setup.

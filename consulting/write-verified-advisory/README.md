@@ -13,4 +13,3 @@ pipx install echomodel
 em skills install write-verified-advisory
 ```
 
-See the [echoskill README](../../README.md#quick-start) for full setup.

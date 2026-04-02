@@ -4,7 +4,7 @@ Quick health check across all your local repos. Your agent scans for uncommitted
 
 Configurable via a roots file so it knows which directories to scan.
 
-Cross-platform — works with any AI coding agent that supports the SKILL.md format.
+Cross-platform — works with any AI agent that supports the SKILL.md format.
 
 ## Install
 
@@ -19,4 +19,3 @@ Or install directly with Gemini CLI:
 gemini skills install https://github.com/echo-skill/echoskill.git --path coding/workspace-status
 ```
 
-See the [echoskill README](../../README.md#quick-start) for full setup.

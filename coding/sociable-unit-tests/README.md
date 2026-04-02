@@ -12,7 +12,7 @@ The result: tests that actually catch integration bugs, the exact class of defec
 - Transaction-level test design for your core/lib layer and optionally at programmable interface layers (CLI, MCP, API)
 - Test naming conventions that describe behavior, not implementation
 
-Cross-platform — works with any AI coding agent that supports the SKILL.md format.
+Cross-platform — works with any AI agent that supports the SKILL.md format.
 
 ## Install
 
@@ -27,4 +27,3 @@ Or install directly with Gemini CLI:
 gemini skills install https://github.com/echo-skill/echoskill.git --path coding/sociable-unit-tests
 ```
 
-See the [echoskill README](../../README.md#quick-start) for full setup.

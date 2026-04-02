@@ -4,7 +4,7 @@ Your local workstation is an investment — dotfiles, agent skills, MCP configs,
 
 Not a migration checklist. An ongoing posture of readiness so you never worry about losing local configuration.
 
-Cross-platform — works with any AI coding agent that supports the SKILL.md format.
+Cross-platform — works with any AI agent that supports the SKILL.md format.
 
 ## Install
 
@@ -19,4 +19,3 @@ Or install directly with Gemini CLI:
 gemini skills install https://github.com/echo-skill/echoskill.git --path coding/workstation-portability
 ```
 
-See the [echoskill README](../../README.md#quick-start) for full setup.
