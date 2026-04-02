@@ -1,8 +1,7 @@
-# Skills Installation Testing
+# Compatibility
 
-Behavior of `gemini skills install` verified via testing with GitHub HTTPS URLs
-(2026-03-27). Four test repos with different structures were created, tested,
-and results documented below.
+How this repo's structure conforms to skill standards and how major tools
+consume it as a source of skills. Verified behaviors documented below.
 
 ## How `gemini skills install` Works
 
