@@ -29,7 +29,7 @@ gemini skills install https://github.com/echo-skill/echoskill.git --path prompti
 
 ### Platform targeting
 
-By default, `em` installs to all supported platforms. To install to one platform only:
+By default, `em` installs into [supported agents](docs/COMPATIBILITY.md) (extensible via providers). To install to one platform only:
 
 ```bash
 em skills install capture-context --target claude
