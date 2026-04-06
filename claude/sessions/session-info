@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Show full details and ready-to-use commands for a Claude Code session.
+
+Usage:
+  show-session a1b2c3d4                    # by 8-char prefix
+  show-session a1b2c3d4-xxxx-xxxx-...     # by full UUID
+  show-session --json a1b2c3d4             # output as JSON
+
+Resolves short prefixes to full session IDs. Errors on ambiguous prefixes.
+
+Also available as part of the /sessions skill inside Claude Code.
+"""
+
+import argparse
+import json
+import os
+import sys
+import datetime
+
+PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
+HOME = os.path.expanduser("~")
+
+
+def decode_project_dir(dirname: str) -> str:
+    """Convert encoded project dir name back to a filesystem path."""
+    raw = dirname.lstrip("-")
+    parts = raw.split("-")
+    resolved = "/"
+    i = 0
+    while i < len(parts):
+        candidate = os.path.join(resolved, parts[i])
+        if os.path.isdir(candidate):
+            resolved = candidate
+            i += 1
+        else:
+            found = False
+            for j in range(len(parts), i, -1):
+                hyphenated = "-".join(parts[i:j])
+                candidate = os.path.join(resolved, hyphenated)
+                if os.path.isdir(candidate):
+                    resolved = candidate
+                    i = j
+                    found = True
+                    break
+            if not found:
+                resolved = os.path.join(resolved, "-".join(parts[i:]))
+                break
+    return resolved
+
+
+def friendly_path(path: str) -> str:
+    if path.startswith(HOME):
+        return "~" + path[len(HOME):]
+    return path
+
+
+def format_age(mtime: float) -> str:
+    now = datetime.datetime.now()
+    mod_dt = datetime.datetime.fromtimestamp(mtime)
+    delta = now - mod_dt
+    if delta.total_seconds() < 60:
+        return "just now"
+    elif delta.total_seconds() < 3600:
+        return f"{int(delta.total_seconds() // 60)}m ago"
+    elif delta.total_seconds() < 86400:
+        return f"{int(delta.total_seconds() // 3600)}h ago"
+    elif delta.days == 1:
+        return "yesterday"
+    else:
+        return f"{delta.days}d ago"
+
+
+def resolve_session(prefix: str) -> tuple[str, str, str]:
+    """Find session by prefix. Returns (jsonl_path, session_id, real_path).
+
+    Raises SystemExit on no match or ambiguous match.
+    """
+    import glob as globmod
+    matches = globmod.glob(os.path.join(PROJECTS_DIR, "*", f"{prefix}*.jsonl"))
+    if not matches:
+        print(f"No session found matching: {prefix}", file=sys.stderr)
+        sys.exit(1)
+    if len(matches) > 1:
+        ids = [os.path.basename(m)[:-6] for m in matches]
+        print(f"Ambiguous prefix '{prefix}' matches {len(matches)} sessions:", file=sys.stderr)
+        for sid in ids:
+            print(f"  {sid}", file=sys.stderr)
+        sys.exit(1)
+
+    jsonl_path = matches[0]
+    session_id = os.path.basename(jsonl_path)[:-6]
+    proj_dir_name = os.path.basename(os.path.dirname(jsonl_path))
+    real_path = decode_project_dir(proj_dir_name)
+    return jsonl_path, session_id, real_path
+
+
+def parse_session(jsonl_path: str) -> tuple[str, str | None]:
+    """Extract first user message and custom title."""
+    summary = ""
+    name = None
+    try:
+        with open(jsonl_path, "r") as f:
+            for line in f:
+                try:
+                    obj = json.loads(line)
+                    if not summary and obj.get("type") == "user" and obj.get("message", {}).get("role") == "user":
+                        content = obj["message"]["content"]
+                        if isinstance(content, str):
+                            summary = content.replace("\n", " ").strip()
+                        elif isinstance(content, list):
+                            for part in content:
+                                if isinstance(part, dict) and part.get("type") == "text":
+                                    summary = part["text"].replace("\n", " ").strip()
+                                    break
+                    elif obj.get("type") == "custom-title":
+                        name = obj.get("customTitle")
+                except json.JSONDecodeError:
+                    continue
+    except Exception:
+        pass
+    return summary, name
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("session_id", help="Session ID or 8-char prefix")
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
+    args = parser.parse_args()
+
+    jsonl_path, session_id, real_path = resolve_session(args.session_id)
+    display_path = friendly_path(real_path)
+    summary, name = parse_session(jsonl_path)
+    mtime = os.path.getmtime(jsonl_path)
+    size = os.path.getsize(jsonl_path)
+
+    line_count = 0
+    try:
+        with open(jsonl_path, "r") as f:
+            for _ in f:
+                line_count += 1
+    except Exception:
+        pass
+
+    if args.json:
+        out = {
+            "session_id": session_id,
+            "path": display_path,
+            "age": format_age(mtime),
+            "modified": mtime,
+            "summary": summary,
+            "name": name,
+            "size_bytes": size,
+            "line_count": line_count,
+        }
+        print(json.dumps(out, indent=2))
+        return
+
+    print(f"Session:  {session_id}")
+    if name:
+        print(f"Name:     {name}")
+    print(f"Path:     {display_path}")
+    print(f"Age:      {format_age(mtime)}")
+    print(f"Summary:  {summary[:120] if summary else '(empty)'}")
+    print(f"Size:     {size:,} bytes, {line_count:,} lines")
+    print()
+    print(f"Resume:   cd {display_path} && claude --resume {session_id}")
+    print(f"Ask:      cd {display_path} && claude --resume {session_id} -p \"<question>\" --fork-session --max-turns 1")
+
+
+if __name__ == "__main__":
+    main()

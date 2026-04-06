@@ -1,6 +1,6 @@
 ---
 name: sessions
-description: "List, search, manage, and query Claude Code sessions. Supports: listing recent sessions, searching session content, renaming sessions, and querying past sessions by topic, name, or ID (e.g. 'find the session where we discussed deploy and ask what we decided', 'ask session auth-refactor what the root cause was', 'ask a1b2c3d4 to summarize')."
+description: "List, search, manage, show, summarize, and query Claude Code sessions. Supports: listing recent sessions, searching session content, renaming sessions, getting session info by ID or name — full UUID, path, age, size, and ready-to-use resume/query commands (e.g. '/sessions info a1b2c3d4', 'session info auth-refactor'), summarizing a session (e.g. '/sessions summarize a1b2c3d4', 'summarize session auth-refactor'), and querying past sessions by topic, name, or ID (e.g. 'find the session where we discussed deploy and ask what we decided', 'ask session auth-refactor what the root cause was')."
 ---
 
 **Note:** If Claude Code now offers built-in session listing, searching, or
@@ -12,6 +12,24 @@ suggest any configuration cleanup needed.
 
 List, search, manage, and query Claude Code sessions across workspace
 directories.
+
+## Capabilities
+
+| Invocation | Behavior |
+|---|---|
+| `/sessions` | List recent sessions (default 12) |
+| `/sessions list 30` | List 30 most recent sessions |
+| `/sessions find "deploy"` | Search full conversation content for keyword |
+| `/sessions info a1b2c3d4` | Show full UUID, path, age, size, resume/query commands |
+| `/sessions a1b2c3d4` | Same as info — bare ID triggers session info |
+| `/sessions rename a1b2c3d4 "auth-fix"` | Rename a session |
+| `/sessions tail a1b2c3d4` | Show last few messages from a session |
+| `/sessions review` | Review open sessions, detect overlaps, rename done ones |
+| `/sessions summarize a1b2c3d4` | Query the session with a summarize prompt (spawns claude) |
+| `/sessions ask a1b2c3d4 "question"` | Query a past session non-interactively (spawns claude) |
+| "find the session where we discussed X and ask..." | Search → confirm → query workflow |
+| "ask session auth-refactor what the root cause was" | Resolve by name → query |
+| "summarize session a1b2c3d4" | Equivalent to `/sessions summarize a1b2c3d4` |
 
 **Subagent filtering:** All commands hide subagent and test sessions by
 default (sessions whose project path is outside `~`, e.g. `/var/folders/`
@@ -59,6 +77,30 @@ Options:
 
 Writes the same `custom-title` entry that Claude Code's `/rename` does. Safe to
 run multiple times — the last name wins.
+
+## Session info
+
+If the user invokes `/sessions <id>`, `/sessions info <id>`,
+"session info a1b2c3d4", "session info auth-refactor", or provides
+a session ID prefix or name as the only argument, get session info:
+
+```bash
+~/.claude/skills/sessions/session-info <session-id-or-prefix>
+```
+
+Display the output directly to the user.
+
+Options:
+- `--json`: output as JSON
+
+The script resolves short prefixes (e.g. `a1b2c3d4`) to full UUIDs
+and errors clearly on ambiguous prefixes.
+
+Output includes:
+- Full UUID, custom name (if renamed), project path
+- Age, first user message, file size and line count
+- Ready-to-use `cd && claude --resume` commands with real path and
+  full UUID for resuming interactively or querying non-interactively
 
 ## Inspecting session endings
 
@@ -129,6 +171,7 @@ This skill supports asking questions of past sessions. The user may say:
 - "Find the session where we discussed deploy and ask what we decided"
 - "Ask session auth-refactor what the root cause was"
 - "Ask a1b2c3d4 to summarize the changes"
+- "Summarize session a1b2c3d4" or "/sessions summarize a1b2c3d4"
 - "What did we decide about naming in that session last week?"
 - "Check if we discussed rate limiting in any recent session"
 
