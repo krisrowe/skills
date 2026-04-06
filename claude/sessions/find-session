@@ -28,6 +28,11 @@ HOME = os.path.expanduser("~")
 DEFAULT_MOST_RECENT = 10
 
 
+def is_subagent_session(real_path: str) -> bool:
+    """Check if a session path looks like a subagent or test session."""
+    return not real_path.startswith(HOME)
+
+
 def decode_project_dir(dirname: str) -> str:
     """Convert encoded project dir name back to a filesystem path."""
     raw = dirname.lstrip("-")
@@ -104,7 +109,7 @@ def get_first_user_message(jsonl_path: str) -> tuple[str, str | None]:
     return summary, name
 
 
-def collect_recent_session_files(most_recent: int) -> list[dict]:
+def collect_recent_session_files(most_recent: int, include_subagents: bool = False) -> list[dict]:
     """Collect the N most recent top-level session JSONL files."""
     if not os.path.isdir(PROJECTS_DIR):
         return []
@@ -116,6 +121,10 @@ def collect_recent_session_files(most_recent: int) -> list[dict]:
             continue
 
         real_path = decode_project_dir(proj_dir_name)
+
+        if not include_subagents and is_subagent_session(real_path):
+            continue
+
         display_path = friendly_path(real_path)
 
         for f in os.listdir(proj_path):
@@ -210,6 +219,10 @@ def main():
         "--max-snippets", type=int, default=3,
         help="Max matching snippets to show per session (default: 3)",
     )
+    parser.add_argument(
+        "--include-subagents", action="store_true",
+        help="Include subagent and test sessions from temp directories (hidden by default)",
+    )
     args = parser.parse_args()
 
     compiled = []
@@ -220,7 +233,7 @@ def main():
             print(f"Invalid pattern '{p}': {e}", file=sys.stderr)
             sys.exit(1)
 
-    sessions = collect_recent_session_files(args.most_recent)
+    sessions = collect_recent_session_files(args.most_recent, include_subagents=args.include_subagents)
     if not sessions:
         print("No sessions found.")
         return

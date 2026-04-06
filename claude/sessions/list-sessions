@@ -27,6 +27,15 @@ HOME = os.path.expanduser("~")
 DEFAULT_LIMIT = 12
 
 
+def is_subagent_session(real_path: str) -> bool:
+    """Check if a session path looks like a subagent or test session.
+
+    Subagent sessions run in temp directories (pytest tmp_path, OS temp).
+    Real user sessions run under the home directory.
+    """
+    return not real_path.startswith(HOME)
+
+
 def decode_project_dir(dirname: str) -> str:
     """Convert encoded project dir name back to a filesystem path.
 
@@ -122,7 +131,7 @@ def parse_session(jsonl_path: str) -> tuple[str, str | None]:
     return summary, name
 
 
-def collect_sessions(summary_contains: str | None = None) -> list[dict]:
+def collect_sessions(summary_contains: str | None = None, include_subagents: bool = False) -> list[dict]:
     """Collect all sessions, optionally filtered by summary substring."""
     if not os.path.isdir(PROJECTS_DIR):
         return []
@@ -134,6 +143,10 @@ def collect_sessions(summary_contains: str | None = None) -> list[dict]:
             continue
 
         real_path = decode_project_dir(proj_dir_name)
+
+        if not include_subagents and is_subagent_session(real_path):
+            continue
+
         display_path = friendly_path(real_path)
 
         for f in os.listdir(proj_path):
@@ -193,11 +206,13 @@ def output_table(sessions: list[dict], verbose: bool, summary_max_length: int):
     path_width = max(path_width, 15)
     path_width = min(path_width, 35)
 
+    id_width = 36 if verbose else 8
+
     # For table mode, cap summary at the lesser of summary_max_length and available width
     table_max = max(summary_max_length, 80 - path_width)
 
-    print(f"{'#':<3} {'Age':<12} {'Path':<{path_width}} Summary")
-    print("-" * (3 + 12 + path_width + max(table_max, 60)))
+    print(f"{'#':<3} {'ID':<{id_width}} {'Age':<12} {'Path':<{path_width}} Summary")
+    print("-" * (3 + id_width + 1 + 12 + path_width + max(table_max, 40)))
     for i, s in enumerate(sessions, 1):
         display = s["name"] if s.get("name") else s["summary"]
         if s.get("name"):
@@ -207,13 +222,16 @@ def output_table(sessions: list[dict], verbose: bool, summary_max_length: int):
         path = s["path"]
         if len(path) > path_width:
             path = "..." + path[-(path_width - 3):]
-        print(f"{i:<3} {s['age']:<12} {path:<{path_width}} {display}")
+        sid = s["session_id"] if verbose else s["session_id"][:8]
+        print(f"{i:<3} {sid:<{id_width}} {s['age']:<12} {path:<{path_width}} {display}")
 
     print()
-    print("Resume commands:")
+    print("Full IDs:")
     for i, s in enumerate(sessions, 1):
-        sid = s["session_id"] if verbose else s["session_id"][:8]
-        print(f"  {i:>2}. cd {s['path']} && claude -r {sid}")
+        print(f"  {i:>2}. {s['session_id']}")
+    print()
+    print("Resume:  cd <path> && claude --resume <full-id>")
+    print("Ask:     cd <path> && claude --resume <full-id> -p \"<question>\" --max-turns 1")
 
 
 if __name__ == "__main__":
@@ -224,10 +242,12 @@ if __name__ == "__main__":
     parser.add_argument("--count", type=int, default=None, help="Number of sessions to show")
     parser.add_argument("--summary-max-length", type=int, default=80, help="Max summary length (default: 80)")
     parser.add_argument("--summary-contains", type=str, default=None, help="Filter sessions by substring in summary")
+    parser.add_argument("--include-subagents", action="store_true",
+                        help="Include subagent and test sessions from temp directories (hidden by default)")
     args = parser.parse_args()
 
     limit = args.count or args.count_pos or DEFAULT_LIMIT
-    sessions = collect_sessions(summary_contains=args.summary_contains)
+    sessions = collect_sessions(summary_contains=args.summary_contains, include_subagents=args.include_subagents)
     sessions = sessions[:limit]
 
     if args.json:

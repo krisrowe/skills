@@ -42,6 +42,34 @@ alternatives so it works for everyone. See the
 [develop-skill](coding/develop-skill/SKILL.md) for the full pattern and
 ordering rules.
 
+## Skill Memories
+
+Skills can instruct the agent to save memories (persistent notes for future
+sessions). The agentskills.io specification explicitly permits this:
+
+> "The Markdown body after the frontmatter contains the skill instructions.
+> There are no format restrictions. Write whatever helps agents perform the
+> task effectively."
+>
+> — [agentskills.io/specification](https://agentskills.io/specification),
+> "Body content" section
+
+Since skills are loaded as instructions into the agent's context, and both
+Claude Code and Gemini CLI agents have memory tools available during normal
+operation, a skill instruction like "save a memory recording which method
+was used" triggers normal tool use — no special mechanism needed.
+
+### Guidelines for skill authors
+
+- Be explicit: "After completing this workflow, save a memory noting: the
+  publishing method used was [method], the target repo was [repo]."
+- Specific instructions produce more reliable results than vague ones.
+- Memory instructions are best-effort — agents follow them with high
+  reliability but they are instructions, not enforced configuration.
+- Use memories for workflow state that speeds up future invocations
+  (e.g., which CLI tool is available, which marketplace repo is preferred).
+  Do not use memories for information derivable from code or git history.
+
 ## `.marketplace` Files
 
 `.marketplace` files are optional dotfiles read by `em` for marketplace
