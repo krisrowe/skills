@@ -245,6 +245,11 @@ cases, commit messages, issue bodies, examples), verify:
    hypothetical names instead. A "harmless example" referencing a
    real resource can confuse readers, create false expectations of
    a dependency, or leak the existence of private resources.
+6. **No local workspace paths:** never use paths that reveal the
+   author's workspace layout. Use universal placeholders like
+   `~/projects/my-app` or describe abstractly ("project root",
+   "workspace directory"). This includes examples — write
+   `cd ~/projects/my-app` not `cd ~/my-particular-workspace/repo`.
 
 **These rules apply to the agent's own output too.** When writing or
 editing documentation, code comments, examples, commit messages, or
