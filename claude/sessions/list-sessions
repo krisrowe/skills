@@ -2,13 +2,14 @@
 """List recent Claude Code sessions across workspace directories.
 
 Usage:
-  claude-sessions                          # show 12 most recent sessions
-  claude-sessions 20                       # show 20 most recent
-  claude-sessions -v                       # verbose: show full session IDs
-  claude-sessions --json                   # output as JSON array
-  claude-sessions --summary-max-length=500 # longer summaries (default: 80)
-  claude-sessions --summary-contains=foo   # filter to sessions matching string
-  claude-sessions --count=20               # same as positional count argument
+  list-sessions                          # show 12 most recent sessions
+  list-sessions 20                       # show 20 most recent
+  list-sessions -v                       # verbose: show full session IDs
+  list-sessions --json                   # output as JSON array
+  list-sessions --summary-max-length=500 # longer summaries (default: 80)
+  list-sessions --summary-contains=foo   # filter to sessions matching string
+  list-sessions --count=20               # same as positional count argument
+  list-sessions --include-archived       # show ARCHIVE: sessions too
 
 Sessions named via /rename in Claude Code show their title instead of the
 first message. Use --json to see both "name" and "summary" fields.
@@ -131,12 +132,72 @@ def parse_session(jsonl_path: str) -> tuple[str, str | None]:
     return summary, name
 
 
-def collect_sessions(summary_contains: str | None = None, include_subagents: bool = False) -> list[dict]:
-    """Collect all sessions, optionally filtered by summary substring."""
+ARCHIVE_PREFIX = "ARCHIVE:"
+DONE_PREFIX = "DONE:"
+ICON_DONE = "✅"
+ICON_ARCHIVE = "📦"
+
+
+def _strip_status_prefix(name: str) -> tuple[str, str]:
+    """Strip a status prefix from a session name, tolerant of spacing/case.
+
+    Returns (status, clean_name) where status is 'done', 'archive', or ''.
+    Matches: 'DONE:', 'done :', ' Done:  ', 'ARCHIVE:', etc.
+    """
+    import re
+    m = re.match(r'^\s*(done)\s*:\s*', name, re.IGNORECASE)
+    if m:
+        return 'done', name[m.end():].strip()
+    m = re.match(r'^\s*(archive)\s*:\s*', name, re.IGNORECASE)
+    if m:
+        return 'archive', name[m.end():].strip()
+    return '', name
+
+
+def is_archived(name: str | None) -> bool:
+    """Check if a session name indicates it's archived."""
+    if not name:
+        return False
+    status, _ = _strip_status_prefix(name)
+    return status == 'archive'
+
+
+def display_name(name: str | None, summary: str) -> str:
+    """Format session name/summary for display with status icons.
+
+    DONE: foo     → ✅ [foo]
+    ARCHIVE: foo  → 📦 [foo]
+    foo           → [foo]
+    (no name)     → summary text bare
+    """
+    if not name:
+        return summary
+
+    status, clean = _strip_status_prefix(name)
+    icon = ""
+    if status == 'done':
+        icon = ICON_DONE + " "
+    elif status == 'archive':
+        icon = ICON_ARCHIVE + " "
+
+    return f"{icon}[{clean}]"
+
+
+def collect_sessions(summary_contains: str | None = None,
+                     include_subagents: bool = False,
+                     include_archived: bool = False) -> tuple[list[dict], dict]:
+    """Collect all sessions, optionally filtered.
+
+    Returns (sessions, stats) where stats has counts and age info
+    for archived sessions that were skipped.
+    """
     if not os.path.isdir(PROJECTS_DIR):
-        return []
+        return [], {"total_scanned": 0, "archived_skipped": 0}
 
     sessions = []
+    archived_mtimes = []
+    total_scanned = 0
+
     for proj_dir_name in os.listdir(PROJECTS_DIR):
         proj_path = os.path.join(PROJECTS_DIR, proj_dir_name)
         if not os.path.isdir(proj_path):
@@ -156,6 +217,12 @@ def collect_sessions(summary_contains: str | None = None, include_subagents: boo
             session_id = f[:-6]  # strip .jsonl
             mtime = os.path.getmtime(jsonl_path)
             summary, name = parse_session(jsonl_path)
+            total_scanned += 1
+
+            # Archive filter
+            if is_archived(name) and not include_archived:
+                archived_mtimes.append(mtime)
+                continue
 
             # Filter checks both name and summary
             if summary_contains:
@@ -173,11 +240,20 @@ def collect_sessions(summary_contains: str | None = None, include_subagents: boo
             })
 
     sessions.sort(key=lambda x: x["modified"], reverse=True)
-    return sessions
+
+    stats = {
+        "total_scanned": total_scanned,
+        "archived_skipped": len(archived_mtimes),
+    }
+    if archived_mtimes:
+        stats["archived_oldest"] = format_age(min(archived_mtimes))
+        stats["archived_newest"] = format_age(max(archived_mtimes))
+
+    return sessions, stats
 
 
-def output_json(sessions: list[dict], summary_max_length: int):
-    """Print sessions as a JSON array."""
+def output_json(sessions: list[dict], summary_max_length: int, stats: dict):
+    """Print sessions as a JSON array with stats."""
     out = []
     for s in sessions:
         summary = s["summary"]
@@ -193,13 +269,34 @@ def output_json(sessions: list[dict], summary_max_length: int):
         if s.get("name"):
             entry["name"] = s["name"]
         out.append(entry)
-    print(json.dumps(out, indent=2))
+    print(json.dumps({"sessions": out, "stats": stats}, indent=2))
 
 
-def output_table(sessions: list[dict], verbose: bool, summary_max_length: int):
+def format_stats_line(shown: int, total_active: int, stats: dict) -> str:
+    """Build a stats footer like 'Showing 10 of 17 (34 archived, oldest 5d ago)'."""
+    parts = [f"Showing {shown} of {total_active}"]
+    archived = stats.get("archived_skipped", 0)
+    if archived:
+        age_range = ""
+        oldest = stats.get("archived_oldest", "")
+        newest = stats.get("archived_newest", "")
+        if oldest and newest and oldest != newest:
+            age_range = f", {newest} – {oldest}"
+        elif oldest:
+            age_range = f", {oldest}"
+        parts.append(f"{archived} archived{age_range}")
+    scanned = stats.get("total_scanned", 0)
+    parts.append(f"{scanned} scanned")
+    return " · ".join(parts)
+
+
+def output_table(sessions: list[dict], verbose: bool, summary_max_length: int,
+                 limit: int, total_active: int, stats: dict):
     """Print sessions as a human-readable table."""
     if not sessions:
         print("No sessions found.")
+        if stats.get("archived_skipped", 0):
+            print(f"  ({stats['archived_skipped']} archived sessions hidden — use --include-archived)")
         return
 
     path_width = max(len(s["path"]) for s in sessions)
@@ -214,9 +311,7 @@ def output_table(sessions: list[dict], verbose: bool, summary_max_length: int):
     print(f"{'#':<3} {'ID':<{id_width}} {'Age':<12} {'Path':<{path_width}} Summary")
     print("-" * (3 + id_width + 1 + 12 + path_width + max(table_max, 40)))
     for i, s in enumerate(sessions, 1):
-        display = s["name"] if s.get("name") else s["summary"]
-        if s.get("name"):
-            display = f"[{display}]"
+        display = display_name(s.get("name"), s["summary"])
         if len(display) > table_max:
             display = display[:table_max - 3] + "..."
         path = s["path"]
@@ -225,6 +320,8 @@ def output_table(sessions: list[dict], verbose: bool, summary_max_length: int):
         sid = s["session_id"] if verbose else s["session_id"][:8]
         print(f"{i:<3} {sid:<{id_width}} {s['age']:<12} {path:<{path_width}} {display}")
 
+    print()
+    print(format_stats_line(len(sessions), total_active, stats))
     print()
     print("Full IDs:")
     for i, s in enumerate(sessions, 1):
@@ -244,13 +341,21 @@ if __name__ == "__main__":
     parser.add_argument("--summary-contains", type=str, default=None, help="Filter sessions by substring in summary")
     parser.add_argument("--include-subagents", action="store_true",
                         help="Include subagent and test sessions from temp directories (hidden by default)")
+    parser.add_argument("--include-archived", action="store_true",
+                        help="Include ARCHIVE: sessions (hidden by default)")
     args = parser.parse_args()
 
     limit = args.count or args.count_pos or DEFAULT_LIMIT
-    sessions = collect_sessions(summary_contains=args.summary_contains, include_subagents=args.include_subagents)
+    sessions, stats = collect_sessions(
+        summary_contains=args.summary_contains,
+        include_subagents=args.include_subagents,
+        include_archived=args.include_archived,
+    )
+    total_active = len(sessions)
     sessions = sessions[:limit]
 
     if args.json:
-        output_json(sessions, args.summary_max_length)
+        output_json(sessions, args.summary_max_length, stats)
     else:
-        output_table(sessions, args.verbose, args.summary_max_length)
+        output_table(sessions, args.verbose, args.summary_max_length,
+                     limit, total_active, stats)

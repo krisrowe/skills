@@ -93,3 +93,35 @@ perspective of the current user's personal workflow.
 - **Update the body as scope evolves** — don't add comments for scope
   changes. The body should always reflect the current understanding.
   Comments are for discussion, not revisions to the spec.
+
+### Call for documentation of rationale and principles
+
+When an issue introduces design principles, architectural decisions,
+or rationale that should guide future work, the issue body should:
+
+1. **Capture the principles in the issue itself** so they're visible
+   during implementation and review.
+2. **Call for those principles to be documented in repo context files**
+   as part of the implementation work breakdown. This means adding
+   them to `CONTRIBUTING.md` (for architecture, design constraints,
+   and conventions) or `README.md` (for user-facing behavior and
+   project identity) — whichever is appropriate per the repo's
+   context file conventions.
+
+Why this matters: `CONTRIBUTING.md` and `README.md` are loaded as
+agent context at session start (via `CLAUDE.md` `@` imports and
+`.gemini/settings.json` context declarations — see the
+`setup-agent-context` skill). Principles documented there
+automatically inform every future agent session working on the repo.
+Principles captured only in an issue body are invisible to agents
+unless the unlikely event happens where someone goes back later
+while maintaining or extending the project and reads an old,
+hopefully closed issue.
+
+The work breakdown should include explicit items like:
+- `[ ] Document [principle/rationale] in CONTRIBUTING.md`
+- `[ ] Update README.md if [decision] affects user-facing behavior`
+
+This ensures that closing the issue means the rationale is durably
+captured where agents and contributors will see it — not buried in
+a closed issue that no one reads again.

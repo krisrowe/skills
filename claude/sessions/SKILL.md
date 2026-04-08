@@ -20,6 +20,7 @@ directories.
 | `/sessions` | List recent sessions (default 12) |
 | `/sessions list 30` | List 30 most recent sessions |
 | `/sessions find "deploy"` | Search full conversation content for keyword |
+| `/sessions find "auth-fix" --name` | Find sessions by custom name (contains match) |
 | `/sessions info a1b2c3d4` | Show full UUID, path, age, size, resume/query commands |
 | `/sessions a1b2c3d4` | Same as info — bare ID triggers session info |
 | `/sessions rename a1b2c3d4 "auth-fix"` | Rename a session |
@@ -30,6 +31,8 @@ directories.
 | "find the session where we discussed X and ask..." | Search → confirm → query workflow |
 | "ask session auth-refactor what the root cause was" | Resolve by name → query |
 | "summarize session a1b2c3d4" | Equivalent to `/sessions summarize a1b2c3d4` |
+| "which session made commit e2e4fb8" | Reverse lookup: grep-session or find-session by SHA |
+| "grep session a1b2c3d4 for deploy" | Search within a specific session with context |
 
 **Subagent filtering:** All commands hide subagent and test sessions by
 default (sessions whose project path is outside `~`, e.g. `/var/folders/`
@@ -58,25 +61,68 @@ Named sessions show their title in `[brackets]`. Use `--json` to see both `name`
 ~/.claude/skills/sessions/find-session "search term"
 ~/.claude/skills/sessions/find-session "term1" "term2"        # OR (either matches)
 ~/.claude/skills/sessions/find-session "term1" "term2" --all  # AND (both must match)
+~/.claude/skills/sessions/find-session "skill-review" --name  # match custom session name
 ```
 
 Searches the full conversation content of recent sessions — not just summaries.
 Use this when `--summary-contains` misses topics discussed mid-conversation.
 
+Use `--name` to search custom session titles (set via `/rename`) instead of
+full content. This is a case-insensitive contains match against the session name.
+
 Options:
 - `--most-recent=N`: how many recent sessions to search (default: 10)
 - `--all`: require all search terms to match (default: any term matches)
 - `--max-snippets=N`: max matching snippets per session (default: 3)
+- `--name`: search custom session names instead of full content
 - `--json`: output as JSON
 
 ## Renaming sessions
 
 ```bash
 ~/.claude/skills/sessions/rename-session <session-id-or-prefix> <new-name>
+~/.claude/skills/sessions/rename-session a1b2c3d4 "auth-refactor" --status done
+~/.claude/skills/sessions/rename-session a1b2c3d4 "old-experiment" --status archive
 ```
 
 Writes the same `custom-title` entry that Claude Code's `/rename` does. Safe to
 run multiple times — the last name wins.
+
+Options:
+- `--status STATUS`: prepend a status prefix to the name. Valid values:
+
+| Status | Prefix | Meaning |
+|--------|--------|---------|
+| _(none)_ | _(no prefix)_ | No particular lifecycle status. |
+| `done` | `DONE:` | Everything from this session is either fully completed in every detail, or all potentially relevant or valuable context has been fully captured for completion in a future session — e.g. in .md files, a TODO list, or a GitHub issue. If a `capture-context` skill is available, use it before marking done to ensure nothing is lost. |
+| `open` | `OPEN:` | Intentionally flagged as incomplete before exit. The session has unfinished work that is NOT fully captured elsewhere. Resuming this session is expected. |
+| `archive` | `ARCHIVE:` | Hidden from the default sessions list. Used for sessions that are no longer relevant but should not be deleted. `list-sessions` and `find-session` skip `ARCHIVE:` sessions by default (use `--include-archived` to show them). |
+
+## Grep within a session
+
+Search within a specific session by ID prefix or custom name. Returns
+matching lines with context, the JSONL file path, and line numbers.
+
+```bash
+~/.claude/skills/sessions/grep-session <session-id-or-name> <pattern>
+~/.claude/skills/sessions/grep-session a1b2c3d4 "deploy" -C 5
+~/.claude/skills/sessions/grep-session a1b2c3d4 "deploy" --count
+~/.claude/skills/sessions/grep-session auth-refactor "error" -i
+```
+
+Options:
+- `-C N` / `--context N`: context lines around each match (default: 2)
+- `--count`: only print match count and file path
+- `-i` / `--ignore-case`: case-insensitive matching
+- `--json`: output as JSON with file path, line numbers, and matches
+
+Use this instead of `session-tail` when you need to understand what a
+session actually did — tail only shows the ending, grep shows the work.
+
+**Reverse lookup pattern:** To find which session made a commit:
+```bash
+~/.claude/skills/sessions/grep-session <session-id> "<commit-sha>"
+```
 
 ## Session info
 
@@ -134,7 +180,7 @@ overlapping sessions, follow this workflow:
      mid-edit/mid-action
    - **Blocked**: hit a permissions error or other blocker and stopped
 
-3. **Rename done sessions** with `rename-session <id> "DONE: <descriptive-name>"`
+3. **Rename done sessions** with `rename-session <id> "<descriptive-name>" --status done`
 
 4. **Detect overlaps** between incomplete sessions:
    - Same repo + similar topic = likely overlap

@@ -6,12 +6,16 @@ Usage:
   find-session "deploy" "error" --most-recent=20  # OR: either term matches
   find-session "deploy" "cloud run" --all      # AND: both terms must match
   find-session "deploy" --json                 # output matches as JSON
+  find-session "skill-review" --name           # match against custom session name
 
 Multiple patterns are OR by default (like grep -e). Use --all for AND.
 
 Unlike list-sessions --summary-contains (which only searches the first message),
 this searches the full session JSONL content, finding topics discussed mid-session
 or in assistant responses.
+
+Use --name to search only custom session titles (set via /rename) instead of
+full content. This is useful for finding sessions by their assigned name.
 
 Also available as /sessions skill inside Claude Code.
 """
@@ -223,6 +227,14 @@ def main():
         "--include-subagents", action="store_true",
         help="Include subagent and test sessions from temp directories (hidden by default)",
     )
+    parser.add_argument(
+        "--include-archived", action="store_true",
+        help="Include ARCHIVE: sessions (hidden by default)",
+    )
+    parser.add_argument(
+        "--name", action="store_true",
+        help="Search custom session names (set via /rename) instead of full content",
+    )
     args = parser.parse_args()
 
     compiled = []
@@ -239,29 +251,51 @@ def main():
         return
 
     matches = []
+    archived_skipped = 0
     for s in sessions:
-        all_snippets = []
-        matched_patterns = set()
-        for i, pat in enumerate(compiled):
-            snippets = search_session(s["jsonl_path"], pat, max_snippets=args.max_snippets)
-            if snippets:
-                matched_patterns.add(i)
-                all_snippets.extend(snippets)
-
-        if args.match_all and len(matched_patterns) < len(compiled):
-            continue
-        if not args.match_all and not matched_patterns:
-            continue
-
-        # Deduplicate snippets while preserving order
-        seen = set()
-        unique_snippets = []
-        for snip in all_snippets:
-            if snip not in seen:
-                seen.add(snip)
-                unique_snippets.append(snip)
-
         summary, name = get_first_user_message(s["jsonl_path"])
+
+        # Skip archived sessions unless explicitly requested
+        if not args.include_archived and name and re.match(r'^\s*archive\s*:', name, re.IGNORECASE):
+            archived_skipped += 1
+            continue
+
+        if args.name:
+            # --name mode: match patterns against custom session name only
+            if not name:
+                continue
+            matched_patterns = set()
+            for i, pat in enumerate(compiled):
+                if pat.search(name):
+                    matched_patterns.add(i)
+            if args.match_all and len(matched_patterns) < len(compiled):
+                continue
+            if not args.match_all and not matched_patterns:
+                continue
+            unique_snippets = []
+        else:
+            # Default mode: search full session content
+            all_snippets = []
+            matched_patterns = set()
+            for i, pat in enumerate(compiled):
+                snippets = search_session(s["jsonl_path"], pat, max_snippets=args.max_snippets)
+                if snippets:
+                    matched_patterns.add(i)
+                    all_snippets.extend(snippets)
+
+            if args.match_all and len(matched_patterns) < len(compiled):
+                continue
+            if not args.match_all and not matched_patterns:
+                continue
+
+            # Deduplicate snippets while preserving order
+            seen = set()
+            unique_snippets = []
+            for snip in all_snippets:
+                if snip not in seen:
+                    seen.add(snip)
+                    unique_snippets.append(snip)
+
         matches.append({
             "session_id": s["session_id"],
             "path": s["path"],
@@ -288,7 +322,10 @@ def main():
         print(f"No matches for {mode_desc} in the {args.most_recent} most recent sessions.")
         return
 
-    print(f"Found {mode_desc} in {len(matches)} session(s) (searched {len(sessions)}):\n")
+    searched_note = f"searched {len(sessions)}"
+    if archived_skipped:
+        searched_note += f", {archived_skipped} archived skipped"
+    print(f"Found {mode_desc} in {len(matches)} session(s) ({searched_note}):\n")
     for i, m in enumerate(matches, 1):
         display = m["name"] if m.get("name") else m["summary"]
         if m.get("name"):

@@ -2,23 +2,52 @@
 """Rename a Claude Code session by writing a custom-title entry to its JSONL file.
 
 Usage:
-  rename-session <session-id-or-prefix> <new-name>
+  rename-session <session-id-or-prefix> <new-name> [--status STATUS]
 
 Writes the same {"type": "custom-title", "customTitle": "..."} entry that
 Claude Code's /rename command does. If the session already has a name,
 it is replaced (a new custom-title entry takes precedence as the last one wins).
 
+The optional --status flag prepends a status prefix to the name:
+  --status done      DONE: <name>
+  --status open      OPEN: <name>
+  --status archive   ARCHIVE: <name>
+
+Status meanings:
+  (none)    No prefix. Session has no particular lifecycle status.
+  done      Everything from this session is either fully completed in every
+            detail, or all potentially relevant or valuable context has been
+            fully captured for completion in a future session — e.g. in .md
+            files, a TODO list, or a GitHub issue. If a capture-context skill
+            is available, use it before marking done to ensure nothing is lost.
+  open      Intentionally flagged as incomplete before exit. The session has
+            unfinished work that is NOT fully captured elsewhere. Resuming
+            this session is expected.
+  archive   Hidden from the default sessions list. Used for sessions that are
+            no longer relevant but should not be deleted. The list-sessions
+            and find-session scripts skip ARCHIVE: sessions by default (use
+            --include-archived to show them).
+
 Examples:
-  rename-session a1b2c3d4 my-cool-session       # prefix match
-  rename-session a1b2c3d4 "refactored auth"     # names can have spaces
+  rename-session a1b2c3d4 my-cool-session                # no status prefix
+  rename-session a1b2c3d4 "refactored auth" --status done # "DONE: refactored auth"
+  rename-session a1b2c3d4 "old-experiment" --status archive
 """
 
+import argparse
 import json
 import os
 import sys
 import glob
 
 PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
+
+VALID_STATUSES = ("done", "open", "archive")
+STATUS_PREFIXES = {
+    "done": "DONE",
+    "open": "OPEN",
+    "archive": "ARCHIVE",
+}
 
 
 def find_session_file(prefix: str) -> str | None:
@@ -58,27 +87,36 @@ def rename_session(jsonl_path: str, new_name: str):
 
 
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: rename-session <session-id-or-prefix> <new-name>", file=sys.stderr)
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("session_id", help="Session ID or prefix")
+    parser.add_argument("new_name", help="New session name")
+    parser.add_argument(
+        "--status", choices=VALID_STATUSES, default=None,
+        help="Status prefix to prepend (done, open, archive)",
+    )
+    args = parser.parse_args()
 
-    prefix = sys.argv[1]
-    new_name = sys.argv[2]
-
-    jsonl_path = find_session_file(prefix)
+    jsonl_path = find_session_file(args.session_id)
     if not jsonl_path:
-        print(f"No session found matching: {prefix}", file=sys.stderr)
+        print(f"No session found matching: {args.session_id}", file=sys.stderr)
         sys.exit(1)
+
+    final_name = args.new_name
+    if args.status:
+        final_name = f"{STATUS_PREFIXES[args.status]}: {args.new_name}"
 
     session_id = os.path.basename(jsonl_path)[:-6]
     current_name = get_current_name(jsonl_path)
 
     if current_name:
-        print(f"Session {session_id[:8]}: \"{current_name}\" -> \"{new_name}\"")
+        print(f"Session {session_id[:8]}: \"{current_name}\" -> \"{final_name}\"")
     else:
-        print(f"Session {session_id[:8]}: (unnamed) -> \"{new_name}\"")
+        print(f"Session {session_id[:8]}: (unnamed) -> \"{final_name}\"")
 
-    rename_session(jsonl_path, new_name)
+    rename_session(jsonl_path, final_name)
     print("Done.")
 
 

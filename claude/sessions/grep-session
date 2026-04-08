@@ -1,0 +1,260 @@
+#!/usr/bin/env python3
+"""Grep within a specific Claude Code session by ID prefix or name.
+
+Usage:
+  grep-session a1b2c3d4 "deploy"              # grep by 8-char prefix
+  grep-session a1b2c3d4 "deploy" -C 5         # 5 context lines
+  grep-session a1b2c3d4 "deploy" --count       # just show match count
+  grep-session auth-refactor "error"           # resolve by session name
+
+Returns matching lines from the session JSONL with surrounding context,
+the JSONL file path, and line numbers within the file.
+"""
+
+import argparse
+import json
+import os
+import re
+import sys
+
+PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
+HOME = os.path.expanduser("~")
+
+
+def decode_project_dir(dirname: str) -> str:
+    raw = dirname.lstrip("-")
+    parts = raw.split("-")
+    resolved = "/"
+    i = 0
+    while i < len(parts):
+        candidate = os.path.join(resolved, parts[i])
+        if os.path.isdir(candidate):
+            resolved = candidate
+            i += 1
+        else:
+            found = False
+            for j in range(len(parts), i, -1):
+                hyphenated = "-".join(parts[i:j])
+                candidate = os.path.join(resolved, hyphenated)
+                if os.path.isdir(candidate):
+                    resolved = candidate
+                    i = j
+                    found = True
+                    break
+            if not found:
+                resolved = os.path.join(resolved, "-".join(parts[i:]))
+                break
+    return resolved
+
+
+def is_subagent_session(real_path: str) -> bool:
+    return not real_path.startswith(HOME)
+
+
+def friendly_path(path: str) -> str:
+    if path.startswith(HOME):
+        return "~" + path[len(HOME):]
+    return path
+
+
+def resolve_session(identifier: str) -> str | None:
+    """Resolve a session ID prefix or custom name to a JSONL path."""
+    if not os.path.isdir(PROJECTS_DIR):
+        return None
+
+    candidates = []
+    for proj_dir_name in os.listdir(PROJECTS_DIR):
+        proj_path = os.path.join(PROJECTS_DIR, proj_dir_name)
+        if not os.path.isdir(proj_path):
+            continue
+        for f in os.listdir(proj_path):
+            if not f.endswith(".jsonl"):
+                continue
+            session_id = f[:-6]
+            jsonl_path = os.path.join(proj_path, f)
+
+            # Match by ID prefix
+            if session_id.startswith(identifier):
+                candidates.append(jsonl_path)
+                continue
+
+            # Match by custom name
+            try:
+                with open(jsonl_path, "r") as fh:
+                    for line in fh:
+                        try:
+                            obj = json.loads(line)
+                            if obj.get("type") == "custom-title":
+                                title = obj.get("customTitle", "")
+                                if title.lower() == identifier.lower():
+                                    candidates.append(jsonl_path)
+                                break  # only check until we find title or give up early
+                        except json.JSONDecodeError:
+                            continue
+            except Exception:
+                continue
+
+    if len(candidates) == 1:
+        return candidates[0]
+    elif len(candidates) > 1:
+        # Return most recently modified
+        candidates.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        return candidates[0]
+    return None
+
+
+def extract_text(obj: dict) -> str:
+    """Extract readable text from a JSONL entry."""
+    texts = []
+    msg = obj.get("message", {})
+    role = msg.get("role", obj.get("type", ""))
+
+    content = msg.get("content", "")
+    if isinstance(content, str):
+        texts.append(content)
+    elif isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict):
+                if part.get("type") == "text":
+                    texts.append(part.get("text", ""))
+                elif part.get("type") == "tool_use":
+                    inp = part.get("input", {})
+                    if isinstance(inp, dict):
+                        for k, v in inp.items():
+                            if isinstance(v, str) and v:
+                                texts.append(v)
+                elif part.get("type") == "tool_result":
+                    rc = part.get("content", "")
+                    if isinstance(rc, str):
+                        texts.append(rc)
+
+    # tool_result at top level
+    if obj.get("type") == "tool_result":
+        rc = obj.get("content", "")
+        if isinstance(rc, str):
+            texts.append(rc)
+
+    return "\n".join(t for t in texts if t)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("session", help="Session ID prefix or custom name")
+    parser.add_argument("pattern", help="Search pattern (regex)")
+    parser.add_argument(
+        "-C", "--context", type=int, default=2,
+        help="Number of context lines around each match (default: 2)",
+    )
+    parser.add_argument(
+        "--count", action="store_true",
+        help="Only print match count, not content",
+    )
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
+    parser.add_argument(
+        "-i", "--ignore-case", action="store_true",
+        help="Case-insensitive matching (default: case-sensitive)",
+    )
+    args = parser.parse_args()
+
+    jsonl_path = resolve_session(args.session)
+    if not jsonl_path:
+        print(f"Error: no session found matching '{args.session}'", file=sys.stderr)
+        sys.exit(1)
+
+    flags = re.IGNORECASE if args.ignore_case else 0
+    try:
+        pattern = re.compile(args.pattern, flags)
+    except re.error as e:
+        print(f"Invalid pattern '{args.pattern}': {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Parse all entries into a flat list of (line_number, role, text)
+    entries = []
+    try:
+        with open(jsonl_path, "r") as f:
+            for line_num, line in enumerate(f, 1):
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                role = obj.get("message", {}).get("role", obj.get("type", "?"))
+                text = extract_text(obj)
+                if text:
+                    entries.append({
+                        "line": line_num,
+                        "role": role,
+                        "text": text,
+                    })
+    except Exception as e:
+        print(f"Error reading {jsonl_path}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Find matches
+    match_indices = []
+    for i, entry in enumerate(entries):
+        if pattern.search(entry["text"]):
+            match_indices.append(i)
+
+    if args.count:
+        print(f"{friendly_path(jsonl_path)}: {len(match_indices)} match(es)")
+        sys.exit(0)
+
+    if not match_indices:
+        print(f"No matches for '{args.pattern}' in {friendly_path(jsonl_path)}")
+        sys.exit(0)
+
+    if args.json:
+        results = []
+        for idx in match_indices:
+            entry = entries[idx]
+            # Find matching lines within the text
+            matching_lines = []
+            for text_line in entry["text"].splitlines():
+                if pattern.search(text_line):
+                    matching_lines.append(text_line.strip())
+            results.append({
+                "jsonl_line": entry["line"],
+                "role": entry["role"],
+                "matching_lines": matching_lines,
+            })
+        print(json.dumps({
+            "file": jsonl_path,
+            "friendly_path": friendly_path(jsonl_path),
+            "total_matches": len(match_indices),
+            "matches": results,
+        }, indent=2))
+        sys.exit(0)
+
+    # Display with context
+    print(f"File: {friendly_path(jsonl_path)}")
+    print(f"Matches: {len(match_indices)}")
+    print()
+
+    shown = set()
+    for idx in match_indices:
+        start = max(0, idx - args.context)
+        end = min(len(entries), idx + args.context + 1)
+
+        for i in range(start, end):
+            if i in shown:
+                continue
+            shown.add(i)
+            entry = entries[i]
+            marker = ">>>" if i == idx else "   "
+            role_tag = f"[{entry['role'].upper():>9}]"
+            # Truncate long text but show more for the match itself
+            max_len = 500 if i == idx else 200
+            text = entry["text"].replace("\n", " ").strip()
+            if len(text) > max_len:
+                text = text[:max_len - 3] + "..."
+            print(f"  {marker} L{entry['line']:<6} {role_tag} {text}")
+
+        if idx != match_indices[-1]:
+            print(f"  {'---':>6}")
+
+
+if __name__ == "__main__":
+    main()
