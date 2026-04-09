@@ -1,7 +1,14 @@
 ---
 name: sessions
-description: "List, search, manage, show, summarize, and query Claude Code sessions. Supports: listing recent sessions, searching session content, renaming sessions, getting session info by ID or name — full UUID, path, age, size, and ready-to-use resume/query commands (e.g. '/sessions info a1b2c3d4', 'session info auth-refactor'), summarizing a session (e.g. '/sessions summarize a1b2c3d4', 'summarize session auth-refactor'), and querying past sessions by topic, name, or ID (e.g. 'find the session where we discussed deploy and ask what we decided', 'ask session auth-refactor what the root cause was')."
+description: "List, search, manage, show, move, summarize, and query Claude Code sessions. Supports: listing recent sessions, searching session content, renaming sessions, moving sessions to a new project directory (e.g. after a repo rename), getting session info by ID or name — full UUID, path, age, size, and ready-to-use resume/query commands (e.g. '/sessions info a1b2c3d4', 'session info auth-refactor'), summarizing a session (e.g. '/sessions summarize a1b2c3d4', 'summarize session auth-refactor'), and querying past sessions by topic, name, or ID (e.g. 'find the session where we discussed deploy and ask what we decided', 'ask session auth-refactor what the root cause was')."
 ---
+
+**Current session ID:** `${CLAUDE_SESSION_ID}`
+
+Use this ID when renaming the current session, writing resume commands
+to tracking files, or any operation that needs to reference this session.
+This value is substituted by Claude Code when the skill is invoked — it
+is not available via environment variables or to MCP tools/hooks.
 
 **Note:** If Claude Code now offers built-in session listing, searching, or
 renaming, prefer those over the scripts below. If you discover a built-in
@@ -24,6 +31,7 @@ directories.
 | `/sessions info a1b2c3d4` | Show full UUID, path, age, size, resume/query commands |
 | `/sessions a1b2c3d4` | Same as info — bare ID triggers session info |
 | `/sessions rename a1b2c3d4 "auth-fix"` | Rename a session |
+| `/sessions move a1b2c3d4 ~/projects/new-repo` | Move session to a new project directory (e.g. after repo rename) |
 | `/sessions tail a1b2c3d4` | Show last few messages from a session |
 | `/sessions review` | Review open sessions, detect overlaps, rename done ones |
 | `/sessions summarize a1b2c3d4` | Query the session with a summarize prompt (spawns claude) |
@@ -97,6 +105,21 @@ Options:
 | `done` | `DONE:` | Everything from this session is either fully completed in every detail, or all potentially relevant or valuable context has been fully captured for completion in a future session — e.g. in .md files, a TODO list, or a GitHub issue. If a `capture-context` skill is available, use it before marking done to ensure nothing is lost. |
 | `open` | `OPEN:` | Intentionally flagged as incomplete before exit. The session has unfinished work that is NOT fully captured elsewhere. Resuming this session is expected. |
 | `archive` | `ARCHIVE:` | Hidden from the default sessions list. Used for sessions that are no longer relevant but should not be deleted. `list-sessions` and `find-session` skip `ARCHIVE:` sessions by default (use `--include-archived` to show them). |
+
+## Moving sessions
+
+When a repo is renamed or moved, sessions attached to the old path become
+unreachable (`claude --resume` looks in the project dir matching the current
+working directory). Move the session to make it resumable from the new location:
+
+```bash
+~/.claude/skills/sessions/move-session <session-id-or-prefix> <target-path>
+~/.claude/skills/sessions/move-session a1b2c3d4 ~/projects/renamed-repo
+```
+
+The script moves the JSONL file from the old project directory to the target's.
+The target path must be an existing directory. Use this after `git mv`/repo
+renames, or when a project directory changes location.
 
 ## Grep within a session
 
@@ -284,3 +307,107 @@ Tell the user clearly and suggest:
 - Broadening the search terms
 - Increasing `--most-recent` (default is 20)
 - Trying `list-sessions --summary-contains` for title/summary matches
+
+## Closing out a stale session
+
+When a session has gone dormant but may have uncaptured work, follow
+this workflow to close it cleanly so anyone who sees the session
+later finds a complete narrative — not an abrupt stop.
+
+### 1. Investigate from outside
+
+Use `session-tail`, `grep-session`, and `session-info` to understand
+what the session was working on and where it stopped. Look for
+`/capture-context` output near the end — it lists what was and wasn't
+captured at the time.
+
+### 2. Research what changed since
+
+Check `git log`, issue state, and file state on the repos the session
+was working on. Cross-reference every item from the session's last
+capture-context against current state.
+
+### 3. Inform the session directly
+
+Send the session a structured message with what's been resolved and
+what's changed. **Do NOT use `--fork-session`** — the conclusion
+must be in the original session so anyone resuming it later sees the
+full story.
+
+```bash
+cd <path> && claude --resume <full-uuid> -p "<structured update>" --max-turns 1
+```
+
+Tell the session what happened but **don't lead the witness**. Don't
+say "confirm nothing is left." Instead, present the facts and ask it
+to review its own history: "Review your full conversation history
+against this update. What is the status of everything you were
+tracking?"
+
+If the session spends its turn on tool calls instead of responding,
+add "Do NOT use any tools. Respond in text only." to the prompt and
+increase `--max-turns` if needed.
+
+### 4. Act on its response
+
+The session may flag items you missed — stale references, orphaned
+config, research findings not captured. Triage these: fix now, file
+as issues, or note for a future session.
+
+### 5. Rename as DONE
+
+```bash
+~/.claude/skills/sessions/rename-session <id> "<name>" --status done
+```
+
+The session should now tell a complete story: original work → dormancy
+→ closure context → status review → DONE.
+
+## Fork management
+
+### When to fork vs. send directly
+
+- **Read-only queries** ("what did this session decide about X?") →
+  use `--fork-session`. The original stays untouched.
+- **Closing a session** (adding conclusion, asking for final review) →
+  send directly, no fork. The conclusion must be in the original.
+- **Sync prompts** ("session A made progress, does this affect you?") →
+  use `--fork-session`. The target session may still be active.
+
+### Fork-as-fast-forward (replacing a parent with its fork)
+
+If a fork was created when it shouldn't have been (e.g., closing out
+a session with `--fork-session` by mistake), the fork may still be
+usable as a replacement for the parent — but only if the parent
+hasn't diverged. Verify all three conditions before proceeding:
+
+1. **Fork contains parent's early history** — grep the fork for a
+   distinctive message from early in the parent session. Claude Code
+   forks include compressed parent history.
+   ```bash
+   grep-session <fork-id> "<early message text>" --count
+   ```
+
+2. **Parent has no messages after the fork point** — compare the
+   parent's last-modified timestamp against the fork's creation time,
+   or tail the parent to confirm it ends where the fork began. If
+   the parent has newer messages, it diverged and the fork is not a
+   superset.
+
+3. **Fork ends with the closure content** — tail the fork to confirm
+   the conclusion/status review is present.
+
+If all three pass:
+```bash
+rename-session <fork-id> "<name>" --status done
+rename-session <parent-id> "<name>-SUPERSEDED" --status archive
+```
+
+Archive any failed fork attempts (e.g., from max-turns errors):
+```bash
+rename-session <failed-fork-id> "<name>-FAILED-FORK" --status archive
+```
+
+If the parent diverged, the fork cannot replace it. Either:
+- Send the closure message directly to the parent (preferred)
+- Keep both sessions and note the relationship in their names
