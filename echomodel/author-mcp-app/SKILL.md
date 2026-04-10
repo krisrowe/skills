@@ -41,8 +41,8 @@ plain async functions, configure via `mcp-app.yaml`, and run with
   and token issuance with no code. Adding `user-identity` to the
   `middleware:` list protects the MCP tools with JWT auth so only
   registered users can call them. With raw FastMCP, you wire all
-  of this yourself (app-user library, DataStoreAuthAdapter,
-  create_app, middleware stacking).
+  of this yourself (manual middleware stacking, DataStoreAuthAdapter,
+  admin endpoint wiring).
 
 - **Per-user data storage.** The `store:` config gives you a data
   store abstraction. `filesystem` (the default) stores per-user
@@ -420,17 +420,33 @@ from mcp_app.context import current_user_id
 user = current_user_id.get()  # "default" (stdio) or "user@example.com" (HTTP)
 ```
 
-### With FastMCP + app-user (alternative)
+### With FastMCP (alternative — manual auth wiring)
 
-Wire `app-user` manually:
+Wire auth manually using mcp-app's auth components:
 
 ```python
-from app_user import create_app, FileSystemUserDataStore, DataStoreAuthAdapter
+from mcp_app import FileSystemUserDataStore, DataStoreAuthAdapter
+from mcp_app.admin import create_admin_app
+from mcp_app.middleware import JWTMiddleware
+from mcp_app.verifier import JWTVerifier
+from starlette.applications import Starlette
+from starlette.routing import Mount
 
 store = FileSystemUserDataStore(app_name=APP_NAME)
 auth_store = DataStoreAuthAdapter(store)
-app = create_app(store=auth_store, inner_app=mcp.streamable_http_app())
+verifier = JWTVerifier(auth_store)
+admin_app = create_admin_app(auth_store)
+inner = mcp.streamable_http_app()
+wrapped = JWTMiddleware(inner, verifier)
+
+app = Starlette(routes=[
+    Mount("/admin", app=admin_app),
+    Mount("/", app=wrapped),
+])
 ```
+
+This is what `mcp-app serve` does internally via `build_app()`.
+Prefer mcp-app.yaml unless you need custom ASGI composition.
 
 ### Environment variables
 
