@@ -2,17 +2,72 @@
 
 ## Repo Structure
 
-The structure of this repo is deliberate and must be maintained for
-compatibility with `gemini skills install` and `em skills install`.
+This repo is organized into **collections** — top-level folders that
+each function as a self-contained skill marketplace. Skills within a
+collection are portable and dependency-free by default, unless the
+collection name signals otherwise.
 
-- Each skill is a directory containing a `SKILL.md` file
-- Skills are organized into **collections** (folders)
-- `gemini skills install <url>` scans one level deep for `*/SKILL.md`
-- `gemini skills install <url> --path <collection>` scans within that collection
-- `gemini skills install <url> --path <collection>/<skill>` installs one skill
+```
+echoskill/
+  coding/              ← general-purpose collection (portable, no dependencies)
+    skill-a/SKILL.md
+    skill-b/SKILL.md
+  prompting/           ← general-purpose collection (portable)
+    capture-context/SKILL.md
+  claude/              ← platform-specific (Claude Code only)
+    sessions/SKILL.md
+  echomodel/           ← ecosystem-specific (assumes echomodel tooling)
+    author-mcp-app/SKILL.md
+```
 
-See the [compatibility guide](docs/COMPATIBILITY.md) for how this repo's
-structure works with major skill consumers across platforms.
+Each skill is a directory containing a `SKILL.md` file. Each collection
+is a directory containing one or more skill directories.
+
+### Collections as mini-marketplaces
+
+Each collection is independently installable. Skill management tools
+consume them at the collection level:
+
+```bash
+# Gemini CLI — install one collection or one skill
+gemini skills install <url> --path coding
+gemini skills install <url> --path coding/skill-a
+
+# ecm — register the whole repo, auto-discovers collections
+ecm skills marketplace register echoskill <url>
+# produces: echoskill/coding, echoskill/prompting, echoskill/claude, echoskill/echomodel
+```
+
+`gemini skills install` scans one level deep within a `--path` target
+for `*/SKILL.md`. Without `--path`, it scans from repo root — which
+finds nothing here because skills are two levels deep (collection →
+skill → SKILL.md). Gemini users must specify `--path` per collection.
+
+`ecm skills marketplace register` auto-discovers collections by
+classifying the immediate children of the target path as skills,
+collections, or both — and registers each collection as a derived
+marketplace with a compound name (e.g., `echoskill/coding`).
+
+See the [compatibility guide](docs/COMPATIBILITY.md) for detailed
+behavior across platforms.
+
+### Portability expectations by collection
+
+**General-purpose collections** (`coding/`, `prompting/`, `consulting/`):
+skills must be portable and dependency-free. They should work for any
+user on any platform without requiring specific tools or frameworks.
+If a skill references a tool, it must offer 3+ alternatives (see
+Tool Dependencies below).
+
+**Platform-specific collections** (`claude/`, `gemini/`): skills may
+depend on platform-specific features. The collection name signals this
+— users installing `claude/` skills expect Claude Code.
+
+**Ecosystem-specific collections** (`echomodel/`): skills may assume
+the user has or is adopting ecosystem tooling (e.g., `mcp-app`, `gapp`).
+They should still support standard alternatives where practical but
+are allowed to recommend ecosystem tools as the primary path. The
+collection name signals this intent.
 
 ## Adding a Skill
 
@@ -21,6 +76,8 @@ structure works with major skill consumers across platforms.
 3. Keep the `name` field matching the directory name
 4. Write platform-neutral instructions when possible
 5. If the skill is platform-specific, place it under `claude/` or `gemini/`
+6. If the skill promotes a specific ecosystem, place it under that
+   ecosystem's collection (e.g., `echomodel/`)
 
 ## Frontmatter
 

@@ -68,6 +68,14 @@ Development workflow skills.
 | [prioritize-github-issues](coding/prioritize-github-issues/SKILL.md) | Scan and rank issues across all repos/orgs by priority labels |
 | [transfer-github-repo](coding/transfer-github-repo/SKILL.md) | Transfer repos between orgs with optional rename |
 
+### [echomodel/](echomodel/)
+
+Skills for building and shipping MCP-powered solutions using the [echomodel](https://echomodel.ai) ecosystem. Recommends [mcp-app](https://github.com/echomodel/mcp-app) as the primary framework while supporting standard FastMCP.
+
+| Skill | Description |
+|-------|-------------|
+| [author-mcp-app](echomodel/author-mcp-app/SKILL.md) | Build, structure, migrate, or review Python MCP servers and web APIs |
+
 ### [claude/](claude/)
 
 Claude Code-specific skills.
