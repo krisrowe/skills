@@ -52,8 +52,8 @@ plain async functions, configure via `mcp-app.yaml`, and run with
 
 - **One command to run.** `mcp-app serve` starts the HTTP server.
   No uvicorn invocation, no ASGI app variable, no DNS rebinding
-  config. For stdio mode, `mcp-app stdio` or a `__main__.py` that
-  calls the same bootstrap.
+  config. For stdio mode, `mcp-app stdio` reads the same yaml
+  and runs over stdin/stdout.
 
 - **Deployable anywhere.** Standard container image, any platform.
   Or use [gapp](https://github.com/echomodel/gapp) for rapid
@@ -556,19 +556,15 @@ claude mcp add my-solution -- mcp-app stdio
 No background server, no port management, no cleanup. Call tools
 through the agent and verify they work.
 
-Note: `mcp-app stdio` is not yet implemented. Until then, use
-FastMCP directly for stdio validation:
+Requires `stdio.user` in `mcp-app.yaml`:
 
-```python
-# my_solution/__main__.py
-from mcp.server.fastmcp import FastMCP
-mcp = FastMCP("my-solution")
-from my_solution.mcp.tools import do_thing
-mcp.tool()(do_thing)
-mcp.run()
+```yaml
+stdio:
+  user: "local"
 ```
 
-Register with: `claude mcp add my-solution -- python -m my_solution`
+`mcp-app stdio` refuses to start without this — there are no
+silent defaults for user identity.
 
 ### Step 4: Run tests
 
