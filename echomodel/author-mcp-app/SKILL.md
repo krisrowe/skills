@@ -23,7 +23,7 @@ This skill supports two approaches:
 [mcp-app](https://github.com/echomodel/mcp-app) is a config-driven
 framework that wraps FastMCP and Starlette. You define tools as
 plain async functions, configure via `mcp-app.yaml`, and run with
-`mcp-app serve`. No framework imports in your tool code.
+two commands. No framework imports in your tool code.
 
 **What the user gets with mcp-app:**
 
@@ -34,37 +34,33 @@ plain async functions, configure via `mcp-app.yaml`, and run with
   function names become tool names, docstrings become descriptions,
   type hints become schemas.
 
-- **User management out of the box.** In HTTP mode, mcp-app
-  automatically mounts REST admin endpoints (`POST /admin/users`,
-  `GET /admin/users`, `DELETE /admin/users/{email}`,
-  `POST /admin/tokens`) — user registration, listing, revocation,
-  and token issuance with no code. Adding `user-identity` to the
-  `middleware:` list protects the MCP tools with JWT auth so only
-  registered users can call them. With raw FastMCP, you wire all
-  of this yourself (manual middleware stacking, DataStoreAuthAdapter,
-  admin endpoint wiring).
+- **User identity and profile.** Identity middleware runs by default
+  in HTTP mode — validates JWTs, loads the full user record (auth +
+  profile) in one store read, sets `current_user` ContextVar. The
+  SDK reads `current_user.get()` for user identity and profile data.
 
-- **Per-user data storage.** The `store:` config gives you a data
-  store abstraction. `filesystem` (the default) stores per-user
-  JSON under XDG-compliant paths. Custom stores (database, cloud
-  storage) plug in via a module path. The SDK accesses data through
-  `get_store()` — no direct file I/O to manage.
+- **User management out of the box.** REST admin endpoints
+  (`POST /admin/users`, `GET /admin/users`,
+  `DELETE /admin/users/{email}`, `POST /admin/tokens`) — user
+  registration with optional profile data, listing, revocation,
+  and token issuance with no code.
 
-- **One command to run.** `mcp-app serve` starts the HTTP server.
-  No uvicorn invocation, no ASGI app variable, no DNS rebinding
-  config. For stdio mode, `mcp-app stdio` reads the same yaml
-  and runs over stdin/stdout.
+- **Per-user data storage.** `filesystem` store (default) provides
+  per-user JSON under XDG-compliant paths. Custom stores plug in
+  via module path. The SDK accesses data through `get_store()`.
+
+- **Typed profile with Pydantic.** Apps register a profile model
+  via `register_profile()`. Profile data is validated at registration
+  and hydrated as a typed object on `current_user.get().profile`.
+
+- **App CLI factories.** `create_mcp_cli()` gives you `serve` and
+  `stdio` commands. `create_admin_cli()` gives you `connect`,
+  `users`, `tokens`, and `health`. The admin CLI generates typed
+  flags from the profile model automatically.
 
 - **Deployable anywhere.** Standard container image, any platform.
   Or use [gapp](https://github.com/echomodel/gapp) for rapid
-  deployment to serverless Cloud Run — gapp auto-detects
-  `mcp-app.yaml` and handles Dockerfile generation, secrets, and
-  data volumes.
-
-**The tradeoff:** mcp-app is opinionated. It handles auth, admin,
-stores, and tool discovery its way. If the user needs custom
-transports, non-standard protocol extensions, or wants full control
-over the ASGI stack, FastMCP gives them that.
+  deployment to serverless Cloud Run.
 
 **Install:**
 ```bash
@@ -113,154 +109,155 @@ Based on this, the solution targets stdio only (simpler — no auth,
 no deployment) or stdio + HTTP (needs auth, deployment planning).
 Both follow the same repo structure.
 
-Follow the full guide below from Repository Structure onward.
-
 ### Mode 2: Migration — Port an Existing App
 
-User has an existing app and wants to port it to follow these
-conventions. Steps:
-
 1. Read the existing codebase to understand current structure
-2. Walk through the Compliance Checklist below, noting what
-   already conforms and what needs to change
-3. Propose a migration plan — what to move, what to delete,
-   what to add — in priority order
-4. Execute the migration with the user's approval
-5. Run the checklist again to verify compliance
+2. Walk through the Compliance Checklist, noting conformance
+3. Propose a migration plan in priority order
+4. Execute with the user's approval
+5. Run the checklist again to verify
 
 ### Mode 3: Review — Evaluate Against Standards
 
-User wants a compliance check of their existing solution.
-
-Run the **Compliance Checklist** below and present results as
-a table:
-
-| Item | Status | Notes |
-|------|--------|-------|
-| SDK layer contains all business logic | ✅ | |
-| MCP tools are thin wrappers | ✅ | |
-| APP_NAME constant in __init__.py | ❌ | Missing |
-| ... | ... | ... |
-
-For each ❌, explain what's wrong and what the fix would be.
-Ask the user if they want to fix the issues.
+Run the Compliance Checklist and present results as a table.
+For each failure, explain what's wrong and the fix.
 
 ## Compliance Checklist
 
-Use this for Mode 2 (migration) and Mode 3 (review):
-
 ### Structure
 - [ ] Three-layer architecture: `sdk/`, `mcp/`, optional `cli/`
-- [ ] All business logic in `sdk/` — no logic in MCP tools or CLI commands
+- [ ] All business logic in `sdk/`
 - [ ] MCP tools are thin (one-liners calling SDK methods)
-- [ ] `APP_NAME` constant in `__init__.py`, used everywhere
-- [ ] `pyproject.toml` with correct dependencies
+- [ ] `APP_NAME` constant in `__init__.py`
+- [ ] `pyproject.toml` with correct dependencies and entry points
 
 ### MCP Server (mcp-app)
-- [ ] `mcp-app.yaml` present with `name` and `tools` fields (`store` defaults to `filesystem`)
+- [ ] `mcp-app.yaml` present with `name` and `tools` fields
 - [ ] Tools module contains plain async functions (no decorators)
-- [ ] `mcp-app serve` starts the HTTP server
+- [ ] Identity middleware runs by default (no config needed)
 - [ ] Tool docstrings are clear and user-centric
 
 ### MCP Server (FastMCP — if not using mcp-app)
 - [ ] Uses `mcp` package (FastMCP) with `stateless_http=True`
 - [ ] DNS rebinding protection disabled for Cloud Run
 - [ ] `mcp.run()` for stdio, `app` variable for HTTP (uvicorn)
-- [ ] All tools have clear docstrings
 
-### Multi-User Auth (only if solution needs it)
-- [ ] Middleware configured in `mcp-app.yaml`: `user-identity` for data-owning, `bearer-proxy` or `google-oauth2-proxy` for API-proxy (or manual wiring for FastMCP)
-- [ ] SDK reads `current_user_id` from context — never from request directly
+### User Identity and Profile
+- [ ] SDK reads `current_user.get()` for identity — `.email` and `.profile`
+- [ ] Profile model registered via `register_profile()` if app needs per-user data
+- [ ] Profile validated with Pydantic at registration time
 - [ ] Per-user data scoping works in both stdio and HTTP modes
+
+### App CLI and Entry Points
+- [ ] `create_mcp_cli(APP_NAME)` for serve/stdio commands
+- [ ] `create_admin_cli(APP_NAME)` for user management
+- [ ] Entry points in `pyproject.toml` for all CLIs
+- [ ] Profile model drives typed admin CLI flags
 
 ### Paths and Environment Variables
 - [ ] XDG path resolver functions in SDK (data, config, cache)
-- [ ] Each resolver checks env var override first, then XDG fallback with APP_NAME
+- [ ] Each resolver checks env var override first, then XDG fallback
 - [ ] No hardcoded absolute paths in code
-- [ ] Tests use the same env var overrides for isolation
+- [ ] `SIGNING_KEY` required for HTTP (no default)
 
 ### Testing
-- [ ] Sociable unit tests in `tests/unit/`
-- [ ] No mocks unless explicitly justified
+- [ ] SDK unit tests in `tests/unit/`
+- [ ] Full-stack HTTP tests using httpx ASGI transport
+- [ ] No mocks unless needed for network I/O
 - [ ] Tests use temp dirs and env vars for isolation
-- [ ] Test names describe scenario + outcome
 
 ### Documentation
-- [ ] README.md: why the repo exists, quick start, deployment, CLI overview, config, dev guide
-- [ ] CONTRIBUTING.md: architecture, testing standards, conventions, how to add features
-- [ ] CLAUDE.md: thin, `@import README.md` and `@import CONTRIBUTING.md`
-- [ ] `.gemini/settings.json`: `context.fileName` pointing to README.md and CONTRIBUTING.md
-- [ ] `.gitignore` follows baseline (see Gitignore section)
-- [ ] No stale references to removed features
+- [ ] README.md with quick start, deployment, config
+- [ ] CONTRIBUTING.md with architecture and testing standards
+- [ ] CLAUDE.md: `@README.md` and `@CONTRIBUTING.md`
+- [ ] `.gemini/settings.json` with context file declarations
 
 ### Deployment Readiness
-- [ ] `mcp-app.yaml` present (mcp-app) or `app` variable in `server.py` (FastMCP)
-- [ ] Deployable as a standard container image (Dockerfile or buildpack)
-- [ ] Optionally, `gapp.yaml` for rapid Cloud Run deployment via gapp
-- [ ] All secrets declared in deployment config (env vars, not hardcoded)
+- [ ] Deployable as a standard container image
+- [ ] Optionally, `gapp.yaml` for rapid Cloud Run deployment
+- [ ] `SIGNING_KEY` set as environment variable (no default)
 
 ## Repository Structure
-
-Every solution follows a three-layer architecture:
 
 ```
 my-solution/
   my_solution/
-    __init__.py       # APP_NAME constant
-    sdk/              # Business logic — ALL behavior lives here
-      core.py         # Main SDK class
-      paths.py        # XDG path resolvers
+    __init__.py       # APP_NAME, Profile model, register_profile,
+                      # mcp_cli, admin_cli
+    sdk/
+      core.py         # Business logic — ALL behavior here
     mcp/
-      tools.py        # Tool definitions — thin, calls SDK
-    cli/              # Optional — Click commands, calls SDK
+      tools.py        # Pure async functions calling SDK
+    cli/              # Optional — app-specific Click commands
       main.py
   tests/
-    unit/             # Sociable unit tests, no mocks
-  mcp-app.yaml        # If using mcp-app
+    unit/
+  mcp-app.yaml
   pyproject.toml
-  gapp.yaml           # Optional — only if deploying with gapp
 ```
 
-### Rules
-
-- **SDK first.** All behavior lives in the SDK. MCP and CLI are
-  thin wrappers that call SDK methods and format output.
-- **No business logic in MCP tools.** Tools call SDK methods.
-- **No business logic in CLI commands.** Commands call SDK methods.
-- **If you're writing logic in a tool or command, stop and move it
-  to SDK.**
-
-### APP_NAME constant
-
-Define once, use everywhere:
+### __init__.py — the app's identity
 
 ```python
 # my_solution/__init__.py
 APP_NAME = "my-solution"
+
+from pydantic import BaseModel
+from mcp_app.context import register_profile
+from mcp_app.cli import create_admin_cli, create_mcp_cli
+
+class Profile(BaseModel):
+    token: str  # whatever the app needs per-user
+
+register_profile(Profile, expand=True)
+
+mcp_cli = create_mcp_cli(APP_NAME)
+admin_cli = create_admin_cli(APP_NAME)
 ```
 
-Used for server name, data store paths, and XDG directory naming.
+### pyproject.toml entry points
+
+```toml
+[project]
+name = "my-solution"
+dependencies = ["mcp-app"]
+
+[project.scripts]
+my-solution = "my_solution.cli:cli"       # app's own CLI (optional)
+my-solution-mcp = "my_solution:mcp_cli"   # serve, stdio
+my-solution-admin = "my_solution:admin_cli" # connect, users, health
+```
+
+One `pipx install my-solution` gives three commands.
+
+### Rules
+
+- **SDK first.** All behavior lives in the SDK. MCP and CLI are
+  thin wrappers.
+- **No business logic in MCP tools or CLI commands.**
+- **If you're writing logic in a tool or command, stop and move it
+  to SDK.**
 
 ## MCP Server Setup
 
 ### With mcp-app (recommended)
 
-**mcp-app.yaml:**
+**mcp-app.yaml — minimal:**
 
 ```yaml
 name: my-solution
-store: filesystem
-middleware:
-  - user-identity
 tools: my_solution.mcp.tools
 ```
 
-| Field | Required | Default | Purpose |
-|-------|----------|---------|---------|
-| `name` | Yes | — | MCP server name, data store paths, XDG directory naming |
-| `tools` | Yes | — | Python module path to discover tools from. All public async functions in this module become MCP tools automatically. |
-| `store` | No | `filesystem` | Data store backend. `filesystem` gives per-user JSON storage under XDG paths. Use a dotted module path (e.g., `my_app.stores.MyStore`) for a custom backend (database, cloud storage, etc.). |
-| `middleware` | No | none | Array of middleware. Built-in: `user-identity` (data-owning), `bearer-proxy` (API-proxy with static tokens), `google-oauth2-proxy` (API-proxy with Google APIs). Custom middleware via dotted module path. Omit entirely for no auth. |
+Only `name` and `tools` are required. Store defaults to `filesystem`.
+Identity middleware runs automatically in HTTP mode.
+
+For stdio, add:
+
+```yaml
+stdio:
+  user: "local"
+```
 
 **Tools module — plain async functions:**
 
@@ -275,15 +272,16 @@ async def do_thing(param: str) -> dict:
     return sdk.do_thing(param)
 ```
 
-No decorators, no framework imports. mcp-app discovers all public
-async functions and registers them as MCP tools. Function names
-become tool names. Docstrings become descriptions. Type hints
-become schemas.
-
-**Run:**
+**Run (development, from repo directory):**
 ```bash
-mcp-app serve          # HTTP mode
-python -m my_solution  # stdio mode (if you add __main__.py)
+mcp-app serve   # HTTP mode
+mcp-app stdio   # stdio mode (reads yaml from cwd)
+```
+
+**Run (installed app, from anywhere):**
+```bash
+my-solution-mcp serve
+my-solution-mcp stdio --user local
 ```
 
 ### With FastMCP (alternative)
@@ -310,149 +308,113 @@ def run_server():
     mcp.run()             # For stdio mode
 ```
 
-### stdio vs HTTP
+## User Identity and Profile
 
-- **stdio** (local): single user, no auth, fast
-- **HTTP** (deployed): multi-user, auth via middleware, always-on
+### How it works
 
-Both use the same tools and SDK. The only difference is how the
-server starts and whether auth is present.
+In HTTP mode, identity middleware validates the JWT, loads the full
+user record from the store (auth + profile in one read), and sets
+`current_user` ContextVar. In stdio mode, the CLI loads the user
+record from the store using `stdio.user` from yaml.
 
-## XDG Path Convention
-
-Solutions use XDG Base Directory Specification for local paths:
-
-```python
-# my_solution/sdk/paths.py
-import os
-from pathlib import Path
-from my_solution import APP_NAME
-
-def get_data_dir() -> Path:
-    """Data directory (logs, user data, catalogs)."""
-    env = os.environ.get("MY_SOLUTION_DATA")
-    if env:
-        return Path(env).expanduser().resolve()
-    base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-    return base / APP_NAME
-
-def get_config_dir() -> Path:
-    """Config directory (settings, app.yaml)."""
-    env = os.environ.get("MY_SOLUTION_CONFIG")
-    if env:
-        return Path(env).expanduser().resolve()
-    base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return base / APP_NAME
-```
-
-The env var overrides serve two purposes:
-1. **Deployment** — map to cloud storage mount paths
-2. **Testing** — point to temp dirs for isolation
-
-## CLI Layer
-
-Use Click for CLI commands. The CLI is a thin wrapper that calls
-SDK methods — same rule as MCP tools.
-
-### CLI scope — discuss with the user
-
-**Recommended starting point:** minimal CLI for management and
-security-sensitive operations. Add CLI equivalents of MCP tools
-only when the user has a concrete need (scripting, automation).
-
-### SDK returns JSON, always
-
-SDK methods return dicts (JSON-serializable). Both MCP tools and
-CLI commands call the same SDK methods:
+The SDK reads it:
 
 ```python
-# SDK
-def log_food(self, entries) -> dict:
-    return {"success": True, "date": "2026-03-25", "entries_added": 2}
+from mcp_app.context import current_user
 
-# MCP tool — returns directly
-async def log_meal(food_entries: list) -> dict:
-    """Log a meal."""
-    return sdk.log_food(food_entries)
-
-# CLI — formats for humans
-@cli.command()
-@click.option("--json", "as_json", is_flag=True)
-def log(food, as_json):
-    result = sdk.log_food(food)
-    if as_json:
-        click.echo(json.dumps(result, indent=2))
-    else:
-        click.echo(f"Logged {result['entries_added']} entries")
+user = current_user.get()
+user.email       # "alice@example.com" (HTTP) or "local" (stdio)
+user.profile     # typed Pydantic model or raw dict
 ```
 
-## Multi-User Auth
+### Two app patterns — same framework, different SDK reads
 
-### With mcp-app (recommended)
-
-Configure middleware in `mcp-app.yaml`:
-
-```yaml
-name: my-solution
-store: filesystem
-middleware:
-  - user-identity       # For data-owning apps
-tools: my_solution.mcp.tools
-```
-
-Three built-in middleware aliases cover the common patterns:
-
-| Alias | Use case |
-|-------|----------|
-| `user-identity` | Data-owning apps. Validates JWT, sets `current_user_id` ContextVar. |
-| `bearer-proxy` | API-proxy apps with static tokens (PATs, API keys). Validates JWT, swaps for stored backend token, rewrites Authorization header. |
-| `google-oauth2-proxy` | API-proxy apps wrapping Google APIs. Same as bearer-proxy but refreshes expired OAuth2 access tokens automatically. |
-
-`bearer-proxy` and `google-oauth2-proxy` are tracked in
-echomodel/mcp-app#8 — not yet implemented. For now, API-proxy
-apps use a custom middleware class referenced by module path, or
-FastMCP with manual middleware wiring.
-
-The SDK reads user identity from context:
+**Data-owning** (owns user data — food logs, notes):
 
 ```python
-from mcp_app.context import current_user_id
-user = current_user_id.get()  # "default" (stdio) or "user@example.com" (HTTP)
+from mcp_app.context import current_user
+from mcp_app import get_store
+
+class MySDK:
+    def save_entry(self, data):
+        user = current_user.get()
+        store = get_store()
+        store.save(user.email, "entries/today", data)
 ```
 
-### With FastMCP (alternative — manual auth wiring)
-
-Wire auth manually using mcp-app's auth components:
+**API-proxy** (wraps external API — financial data, task management):
 
 ```python
-from mcp_app import FileSystemUserDataStore, DataStoreAuthAdapter
-from mcp_app.admin import create_admin_app
-from mcp_app.middleware import JWTMiddleware
-from mcp_app.verifier import JWTVerifier
-from starlette.applications import Starlette
-from starlette.routing import Mount
+from mcp_app.context import current_user
+import httpx
 
-store = FileSystemUserDataStore(app_name=APP_NAME)
-auth_store = DataStoreAuthAdapter(store)
-verifier = JWTVerifier(auth_store)
-admin_app = create_admin_app(auth_store)
-inner = mcp.streamable_http_app()
-wrapped = JWTMiddleware(inner, verifier)
-
-app = Starlette(routes=[
-    Mount("/admin", app=admin_app),
-    Mount("/", app=wrapped),
-])
+class MySDK:
+    def list_items(self):
+        user = current_user.get()
+        token = user.profile.token  # typed via Pydantic
+        resp = httpx.get("https://api.example.com/items",
+                         headers={"Authorization": f"Bearer {token}"})
+        return resp.json()
 ```
 
-This is what `mcp-app serve` does internally via `build_app()`.
-Prefer mcp-app.yaml unless you need custom ASGI composition.
+Both use `current_user.get()`. The middleware is the same (identity
+only). The SDK decides what to read from the user context.
+
+### Profile registration
+
+The app declares its per-user profile shape:
+
+```python
+# my_solution/__init__.py
+from pydantic import BaseModel
+from mcp_app.context import register_profile
+
+class Profile(BaseModel):
+    token: str
+
+register_profile(Profile, expand=True)
+```
+
+`expand=True` generates typed CLI flags (`--token`). `expand=False`
+accepts the profile as a JSON blob or `@file`.
+
+### User management
+
+**Three CLI entry points per app:**
+
+```bash
+# App CLI — the app itself (if it has one)
+my-solution do-something
+
+# MCP server
+my-solution-mcp serve
+my-solution-mcp stdio --user local
+
+# Admin — user management
+my-solution-admin connect local
+my-solution-admin users add alice --token xxx
+my-solution-admin users list
+my-solution-admin users revoke alice
+my-solution-admin health
+```
+
+`connect local` writes to the local filesystem store. `connect <url>`
+manages users on a deployed instance via HTTP admin API.
+
+**Generic CLI (no app installed):**
+
+```bash
+mcp-app setup https://my-app.run.app --signing-key xxx
+mcp-app users add alice --profile '{"token": "xxx"}'
+```
+
+Remote only. No typed flags (profile model isn't loaded).
 
 ### Environment variables
 
 | Var | Required | Default | Purpose |
 |-----|----------|---------|---------|
-| `SIGNING_KEY` | For HTTP | `"dev-key"` | JWT signing |
+| `SIGNING_KEY` | For HTTP | none — required | JWT signing |
 | `JWT_AUD` | No | None | Token audience |
 | `APP_USERS_PATH` | No | XDG default | Data directory |
 
@@ -463,9 +425,7 @@ This is not optional — do it before the compliance dashboard.
 
 ### Step 1: SDK unit tests
 
-Test business logic directly. Isolate via env vars pointing to temp
-dirs — same env vars the solution's XDG resolvers read, same ones
-deployment maps to cloud storage.
+Test business logic directly with env var isolation:
 
 ```python
 import os
@@ -479,30 +439,21 @@ def isolated_data(tmp_path):
     del os.environ["MY_SOLUTION_DATA"]
     del os.environ["MY_SOLUTION_CONFIG"]
 
-def test_logs_food_to_date_directory(tmp_path):
+def test_saves_entry(tmp_path):
     sdk = MySDK()
-    result = sdk.log_food([{"food_name": "apple"}])
+    result = sdk.save_entry({"item": "apple"})
     assert result["success"]
 ```
 
-No mocks unless needed for network I/O or cloud CLIs. Real file I/O
-to temp dirs. Real JSON parsing. Real config resolution.
+### Step 2: Full-stack HTTP validation
 
-### Step 2: Full-stack HTTP validation (mcp-app)
-
-Validate the entire ASGI stack in-memory using httpx's ASGI transport.
-No server process, no port, no Docker. httpx is already a dependency
-of mcp-app — the solution gets it for free.
-
-`build_app()` returns the same ASGI app that `mcp-app serve` gives to
-uvicorn. Give it to httpx instead and the full stack runs in-process:
-tool discovery, middleware, admin endpoints, store wiring.
+Validate the entire ASGI stack in-memory using httpx's ASGI
+transport. No server process, no port, no Docker. httpx is a
+dependency of mcp-app — the solution gets it for free.
 
 **If it works here, it works in uvicorn, it works in Docker.**
 
 ```python
-import os
-import pytest
 import httpx
 import jwt as pyjwt
 from datetime import datetime, timezone, timedelta
@@ -516,55 +467,37 @@ def app_client(tmp_path):
     transport = httpx.ASGITransport(app=app)
     return httpx.AsyncClient(transport=transport, base_url="http://test")
 
-def _admin_token():
-    return pyjwt.encode(
+@pytest.mark.asyncio
+async def test_register_and_call_tool(app_client):
+    admin_token = pyjwt.encode(
         {"sub": "admin", "scope": "admin",
          "iat": datetime.now(timezone.utc),
          "exp": datetime.now(timezone.utc) + timedelta(minutes=5)},
         "test-key", algorithm="HS256",
     )
+    headers = {"Authorization": f"Bearer {admin_token}"}
 
-@pytest.mark.asyncio
-async def test_register_user_and_list(app_client):
-    headers = {"Authorization": f"Bearer {_admin_token()}"}
     resp = await app_client.post(
         "/admin/users",
-        json={"email": "user@example.com"},
+        json={"email": "user@example.com",
+              "profile": {"token": "test-api-key"}},
         headers=headers,
     )
     assert resp.status_code == 200
     assert "token" in resp.json()
-
-    resp = await app_client.get("/admin/users", headers=headers)
-    assert any(u["email"] == "user@example.com" for u in resp.json())
 ```
-
-Write tests that cover:
-- Tool discovery (tools from the module are reachable)
-- Auth flow (register user, get token, call tool with token)
-- SDK logic through the tool layer (end-to-end)
-- Store reads/writes via tools
 
 ### Step 3: stdio validation
 
-Register with an MCP client — it manages the process lifecycle:
-
+**Development (from repo directory):**
 ```bash
 claude mcp add my-solution -- mcp-app stdio
 ```
 
-No background server, no port management, no cleanup. Call tools
-through the agent and verify they work.
-
-Requires `stdio.user` in `mcp-app.yaml`:
-
-```yaml
-stdio:
-  user: "local"
+**Installed app:**
+```bash
+claude mcp add my-solution -- my-solution-mcp stdio --user local
 ```
-
-`mcp-app stdio` refuses to start without this — there are no
-silent defaults for user identity.
 
 ### Step 4: Run tests
 
@@ -572,29 +505,27 @@ silent defaults for user identity.
 pytest tests/unit/ -v
 ```
 
-All tests must pass before proceeding to the compliance dashboard
-or deployment.
+All tests must pass before the compliance dashboard.
 
 ### When to stub
 
 - **Network I/O** — stub HTTP clients, external API calls
 - **Cloud CLIs** — mock at the SDK function boundary
-- **Local CLI tools** (git, etc.) — let them run for real in temp dirs
 - **Everything else** — real code, real files, real config
 
 ## Deployment
 
 The solution is a standard Python app. It deploys as a container
-anywhere. mcp-app doesn't care where it runs — it serves an ASGI
-app on a port.
+anywhere.
 
 ### Option 1: gapp (fastest path to Cloud Run)
 
-[gapp](https://github.com/echomodel/gapp) auto-detects `mcp-app.yaml`
-and handles Dockerfile generation, secrets, and data volumes:
+[gapp](https://github.com/echomodel/gapp) auto-detects
+`mcp-app.yaml` and handles Dockerfile generation, secrets, and
+data volumes:
 
 ```yaml
-# gapp.yaml — minimal config
+# gapp.yaml
 public: true
 env:
   - name: SIGNING_KEY
@@ -608,13 +539,7 @@ env:
 gapp deploy
 ```
 
-No Dockerfile to write. gapp generates one with
-`CMD ["mcp-app", "serve"]`.
-
 ### Option 2: Docker (any container platform)
-
-Write a Dockerfile and deploy to Cloud Run, Fly, Railway, or any
-platform that runs containers:
 
 ```dockerfile
 FROM python:3.11-slim
@@ -626,37 +551,24 @@ CMD ["mcp-app", "serve"]
 ```
 
 ```bash
-# Build and test locally
 docker build -t my-solution .
-docker run -p 8080:8080 -e SIGNING_KEY=dev-key my-solution
-# Visit http://localhost:8080/admin/users to verify
+docker run -p 8080:8080 -e SIGNING_KEY=your-key my-solution
 
-# Deploy to Google Cloud Run (source deploy — builds in the cloud)
+# Deploy to Google Cloud Run
 gcloud run deploy my-solution \
   --source . \
   --allow-unauthenticated \
   --set-env-vars SIGNING_KEY=your-key
-
-# Deploy to Google Cloud Run (from pre-built image)
-gcloud builds submit --tag gcr.io/your-project/my-solution
-gcloud run deploy my-solution \
-  --image gcr.io/your-project/my-solution \
-  --allow-unauthenticated \
-  --set-env-vars SIGNING_KEY=your-key
 ```
 
-The Dockerfile is standard — it works on any platform that runs
-containers. Cloud Run is shown here as a concrete example. The
-solution is not locked to any cloud provider.
-
-Set `SIGNING_KEY` and `APP_USERS_PATH` as environment variables on
-your platform. `mcp-app serve` starts on port 8080 by default.
+The Dockerfile works on any container platform. Cloud Run is shown
+as a concrete example.
 
 ### After deployment: MCP client registration
 
-**Claude Code (stdio — local):**
+**Claude Code (stdio — installed app):**
 ```bash
-claude mcp add my-solution -- mcp-app stdio
+claude mcp add my-solution -- my-solution-mcp stdio --user local
 ```
 
 **Claude Code (HTTP — remote):**
@@ -666,47 +578,29 @@ claude mcp add --transport http my-solution \
   --header "Authorization: Bearer USER_TOKEN"
 ```
 
-Note: Claude Code does not currently support env var interpolation
-in HTTP headers. The token is stored in cleartext in the local
-config. For stdio servers, use `-e KEY=value` to pass secrets via
-environment variables instead.
-
 **Claude.ai / Claude mobile / Claude Code (remote via URL):**
 ```
 https://your-service.run.app/?token=USER_TOKEN
 ```
 
 Remote MCP servers added through Claude.ai are available across all
-Claude clients — web, mobile app, and Claude Code — without separate
-configuration for each.
-
-**Gemini CLI (remote):**
-```json
-{
-  "mcpServers": {
-    "my-solution": {
-      "url": "https://your-service.run.app/",
-      "headers": {
-        "Authorization": "Bearer USER_TOKEN"
-      }
-    }
-  }
-}
-```
+Claude clients — web, mobile app, and Claude Code.
 
 ### After deployment: user management
 
-Register users via the admin API:
 ```bash
-mcp-app set-base-url https://your-service.run.app --signing-key YOUR_KEY
-mcp-app users add user@example.com
+# Remote — via admin CLI
+my-solution-admin connect https://your-service.run.app --signing-key xxx
+my-solution-admin users add alice --token api-key-xxx
+
+# Or via generic CLI
+mcp-app setup https://your-service.run.app --signing-key xxx
+mcp-app users add alice --profile '{"token": "api-key-xxx"}'
 ```
 
 The token returned is what the user puts in their MCP client config.
 
 ## Gitignore
-
-Baseline for Python MCP repos:
 
 ```gitignore
 # Python
@@ -725,6 +619,9 @@ venv/
 # Testing
 .pytest_cache/
 
+# Claude Code
+.claude/
+
 # Gemini (except settings.json)
 .gemini/*
 !.gemini/settings.json
@@ -739,21 +636,17 @@ venv/
 ## Documentation
 
 ### README.md
-
-Covers: why the repo exists, quick start, deployment, CLI overview,
-configuration, development guide.
+Covers: why the repo exists, quick start, deployment, CLI, config.
 
 ### CONTRIBUTING.md
-
-Covers: architecture, testing standards, conventions, how to add
-features, security considerations.
+Covers: architecture, testing, conventions, how to add features.
 
 ### Agent context files
 
 **CLAUDE.md:**
 ```markdown
-@import README.md
-@import CONTRIBUTING.md
+@README.md
+@CONTRIBUTING.md
 ```
 
 **`.gemini/settings.json`:**
@@ -767,8 +660,8 @@ features, security considerations.
 
 ## Final Step: Compliance Dashboard
 
-**Always conclude with this** — whether greenfield, migration, or
-review. Run the Compliance Checklist and present results:
+**Always conclude with this.** Run the Compliance Checklist and
+present results:
 
 ```
 ## Solution Compliance Dashboard: {APP_NAME}
@@ -777,13 +670,13 @@ review. Run the Compliance Checklist and present results:
 |----------|------|--------|
 | Structure | SDK layer contains all business logic | ✅ |
 | Structure | MCP tools are thin wrappers | ✅ |
-| MCP | mcp-app.yaml present (or FastMCP configured) | ✅ |
-| Auth | Middleware configured | ❌ |
+| MCP | mcp-app.yaml present | ✅ |
+| Identity | current_user accessible, profile typed | ✅ |
+| CLI | Entry points for mcp + admin | ❌ |
 | Testing | SDK unit tests pass | ✅ |
 | Testing | Full-stack HTTP tests pass | ⚠️ |
 | Testing | stdio validated | ❌ |
 | Deploy | Dockerfile or gapp.yaml present | ❌ |
-| ... | ... | ... |
 
 ✅ = conforms  ❌ = missing/wrong  ⚠️ = partial
 ```
