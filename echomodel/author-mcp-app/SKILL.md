@@ -49,14 +49,19 @@ files, no framework imports in your tool code.
   per-user JSON under XDG-compliant paths. Custom stores plug in
   via module path. The SDK accesses data through `get_store()`.
 
-- **Typed profile with Pydantic.** Apps register a profile model
-  via `register_profile()`. Profile data is validated at registration
+- **Typed profile with Pydantic.** Apps declare a profile model
+  on the `App` object. Profile data is validated at registration
   and hydrated as a typed object on `current_user.get().profile`.
 
-- **App CLI factories.** `create_mcp_cli()` gives you `serve` and
-  `stdio` commands. `create_admin_cli()` gives you `connect`,
-  `users`, `tokens`, and `health`. The admin CLI generates typed
-  flags from the profile model automatically.
+- **One composition root.** The `App` class declares name, tools
+  module, profile model, and store in one place. CLIs (`serve`,
+  `stdio`, `connect`, `users`, `health`) are derived automatically.
+  The admin CLI generates typed flags from the profile model.
+
+- **Free tests for auth, admin, and wiring.** `mcp_app.testing`
+  ships test modules that check auth enforcement, user admin, JWT
+  handling, CLI wiring, and tool protocol compliance against your
+  app. Import them, provide your `App` as a fixture, get 25+ tests.
 
 - **Identity enforced by default.** Every tool is wrapped with
   identity enforcement — if no user is established (HTTP middleware
@@ -138,7 +143,7 @@ For each failure, explain what's wrong and the fix.
 - [ ] `pyproject.toml` with correct dependencies and entry points
 
 ### MCP Server (mcp-app)
-- [ ] `create_mcp_cli(APP_NAME)` wired in `__init__.py`
+- [ ] `App` object declared in `__init__.py` with name and tools_module
 - [ ] Tools module contains plain async functions (no decorators)
 - [ ] Identity middleware runs by default (no config needed)
 - [ ] Tool docstrings are clear and user-centric
@@ -150,15 +155,15 @@ For each failure, explain what's wrong and the fix.
 
 ### User Identity and Profile
 - [ ] SDK reads `current_user.get()` for identity — `.email` and `.profile`
-- [ ] Profile model registered via `register_profile()` if app needs per-user data
+- [ ] Profile model declared on `App` if app needs per-user data
 - [ ] Profile validated with Pydantic at registration time
 - [ ] Per-user data scoping works in both stdio and HTTP modes
 
 ### App CLI and Entry Points
-- [ ] `create_mcp_cli(APP_NAME)` for serve/stdio commands
-- [ ] `create_admin_cli(APP_NAME)` for user management
-- [ ] Entry points in `pyproject.toml` for all CLIs
-- [ ] Profile model drives typed admin CLI flags
+- [ ] `App` object with `mcp_cli` and `admin_cli` cached properties
+- [ ] Entry points in `pyproject.toml` target `app.mcp_cli` and `app.admin_cli`
+- [ ] `mcp_app.apps` entry point group registered
+- [ ] Profile model on `App` drives typed admin CLI flags
 
 ### Paths and Environment Variables
 - [ ] XDG path resolver functions in SDK (data, config, cache)
@@ -226,8 +231,7 @@ my-solution/
   tests/
 ```
 
-In multi-package repos, the mcp-app integration (`mcp_cli`,
-`admin_cli`, `register_profile`) goes in the MCP package's
+In multi-package repos, the `App` object goes in the MCP package's
 `__init__.py` — that's where mcp-app is a dependency.
 
 ### __init__.py — the app's identity
@@ -236,37 +240,37 @@ In multi-package repos, the mcp-app integration (`mcp_cli`,
 
 ```python
 # my_solution/__init__.py
-APP_NAME = "my-solution"
-
 from pydantic import BaseModel
-from mcp_app.context import register_profile
-from mcp_app.cli import create_admin_cli, create_mcp_cli
+from mcp_app import App
+from my_solution.mcp import tools
 
 class Profile(BaseModel):
-    token: str  # whatever the app needs per-user
+    token: str
 
-register_profile(Profile, expand=True)
-
-mcp_cli = create_mcp_cli(APP_NAME)
-admin_cli = create_admin_cli(APP_NAME)
+app = App(
+    name="my-solution",
+    tools_module=tools,
+    profile_model=Profile,
+    profile_expand=True,
+)
 ```
 
 **Data-owning app** (no per-user credentials — just identity):
 
 ```python
 # my_solution/__init__.py
-APP_NAME = "my-solution"
+from mcp_app import App
+from my_solution.mcp import tools
 
-from mcp_app.cli import create_admin_cli, create_mcp_cli
-
-# No Profile model — data-owning apps don't need per-user
-# profile data. User identity comes from current_user.get().email.
-# App data lives in the store via get_store() or however the app
-# chooses to manage its own data storage.
-
-mcp_cli = create_mcp_cli(APP_NAME)
-admin_cli = create_admin_cli(APP_NAME)
+app = App(
+    name="my-solution",
+    tools_module=tools,
+)
 ```
+
+No profile model needed. User identity comes from
+`current_user.get().email`. App data lives in the store or
+however the app manages its own storage.
 
 ### pyproject.toml entry points
 
@@ -276,12 +280,17 @@ name = "my-solution"
 dependencies = ["mcp-app"]
 
 [project.scripts]
-my-solution = "my_solution.cli:cli"       # app's own CLI (optional)
-my-solution-mcp = "my_solution:mcp_cli"   # serve, stdio
-my-solution-admin = "my_solution:admin_cli" # connect, users, health
+my-solution = "my_solution.cli:cli"           # app's own CLI (optional)
+my-solution-mcp = "my_solution:app.mcp_cli"   # serve, stdio
+my-solution-admin = "my_solution:app.admin_cli" # connect, users, health
+
+[project.entry-points."mcp_app.apps"]
+my-solution = "my_solution:app"
 ```
 
-One `pipx install my-solution` gives three commands.
+One `pipx install my-solution` gives three commands. The
+`mcp_app.apps` entry point lets framework tooling discover
+the app.
 
 ### Rules
 
@@ -308,14 +317,14 @@ One `pipx install my-solution` gives three commands.
 
 ### With mcp-app (recommended)
 
-No config files. The app wires everything in Python:
+No config files. The `App` object wires everything:
 
 ```python
 # my_solution/__init__.py
-from mcp_app.cli import create_mcp_cli, create_admin_cli
+from mcp_app import App
+from my_solution.mcp import tools
 
-mcp_cli = create_mcp_cli("my-solution")
-admin_cli = create_admin_cli("my-solution")
+app = App(name="my-solution", tools_module=tools)
 ```
 
 Tools module — plain async functions:
@@ -430,16 +439,24 @@ The app declares its per-user profile shape:
 ```python
 # my_solution/__init__.py
 from pydantic import BaseModel
-from mcp_app.context import register_profile
+from mcp_app import App
+from my_solution.mcp import tools
 
 class Profile(BaseModel):
     token: str
 
-register_profile(Profile, expand=True)
+app = App(
+    name="my-solution",
+    tools_module=tools,
+    profile_model=Profile,
+    profile_expand=True,
+)
 ```
 
-`expand=True` generates typed CLI flags (`--token`). `expand=False`
-accepts the profile as a JSON blob or `@file`.
+`profile_expand=True` generates typed CLI flags (`--token`).
+`profile_expand=False` accepts the profile as a JSON blob or `@file`.
+Profile registration happens automatically when the `App` is
+constructed — no separate `register_profile()` call needed.
 
 ### User management
 
@@ -736,10 +753,45 @@ Covers: architecture, testing, conventions, how to add features.
 }
 ```
 
-## Final Step: Compliance Dashboard
+## Final Step: Adopt mcp-app's Test Suite and Confirm
 
-**Always conclude with this.** Run the Compliance Checklist and
-present results:
+**The definitive confirmation that the solution is correctly built
+is that mcp-app's test suite passes against it.** This is the last
+thing to do — after structure, code, docs, and deployment config
+are in place.
+
+### 1. Create `tests/framework/conftest.py`
+
+```python
+import pytest
+from my_solution import app
+
+@pytest.fixture(scope="session")
+def app():
+    return app
+```
+
+### 2. Create `tests/framework/test_framework.py`
+
+```python
+from mcp_app.testing.iam import *
+from mcp_app.testing.wiring import *
+from mcp_app.testing.tools import *
+from mcp_app.testing.health import *
+```
+
+### 3. Run everything
+
+```bash
+pytest tests/
+```
+
+These tests check auth enforcement (401/403), user admin (local
+and remote), CLI wiring, tool protocol compliance (docstrings,
+return types), SDK test coverage for every tool, and health
+endpoint. They run against YOUR app — not the framework.
+
+### 4. Present the compliance dashboard
 
 ```
 ## Solution Compliance Dashboard: {APP_NAME}
@@ -748,16 +800,21 @@ present results:
 |----------|------|--------|
 | Structure | SDK layer contains all business logic | ✅ |
 | Structure | MCP tools are thin wrappers | ✅ |
-| MCP | create_mcp_cli wired | ✅ |
+| MCP | App object declared | ✅ |
 | Identity | current_user accessible, profile typed | ✅ |
-| CLI | Entry points for mcp + admin | ❌ |
+| CLI | Entry points for mcp + admin | ✅ |
 | Testing | SDK unit tests pass | ✅ |
-| Testing | Full-stack HTTP tests pass | ⚠️ |
-| Testing | stdio validated | ❌ |
+| Testing | mcp-app test suite passes | ✅ |
+| Testing | stdio validated | ✅ |
 | Deploy | Dockerfile or gapp.yaml present | ❌ |
 
 ✅ = conforms  ❌ = missing/wrong  ⚠️ = partial
 ```
+
+**The solution is ready when `pytest tests/` passes with zero
+failures.** The mcp-app test suite is the authoritative check —
+if it passes, auth works, admin works, tools are wired, identity
+is enforced, and the SDK has test coverage for every tool.
 
 After presenting the dashboard:
 
