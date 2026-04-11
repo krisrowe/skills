@@ -320,13 +320,6 @@ default behavior. The `middleware` field is only needed to add
 custom middleware alongside identity or to explicitly disable
 auth with `middleware: []`.
 
-For stdio, add:
-
-```yaml
-stdio:
-  user: "local"
-```
-
 **Tools module — plain async functions:**
 
 ```python
@@ -383,7 +376,7 @@ def run_server():
 In HTTP mode, identity middleware validates the JWT, loads the full
 user record from the store (auth + profile in one read), and sets
 `current_user` ContextVar. In stdio mode, the CLI loads the user
-record from the store using `stdio.user` from yaml.
+record from the store using the `--user` flag.
 
 The SDK reads it:
 
@@ -499,24 +492,45 @@ This is not optional — do it before the compliance dashboard.
 
 ### Step 1: SDK unit tests
 
-Test business logic directly with env var isolation:
+Test business logic directly. Set `current_user` and env vars
+in fixtures — the SDK reads these at runtime:
 
 ```python
 import os
 import pytest
+from mcp_app.context import current_user
+from mcp_app.models import UserRecord
 
 @pytest.fixture(autouse=True)
-def isolated_data(tmp_path):
+def isolated_env(tmp_path):
     os.environ["MY_SOLUTION_DATA"] = str(tmp_path / "data")
     os.environ["MY_SOLUTION_CONFIG"] = str(tmp_path / "config")
+    token = current_user.set(UserRecord(email="test-user"))
     yield
+    current_user.reset(token)
     del os.environ["MY_SOLUTION_DATA"]
     del os.environ["MY_SOLUTION_CONFIG"]
 
-def test_saves_entry(tmp_path):
+def test_saves_entry():
     sdk = MySDK()
     result = sdk.save_entry({"item": "apple"})
     assert result["success"]
+
+def test_multi_user_isolation(tmp_path):
+    """Data for different users doesn't mix."""
+    token = current_user.set(UserRecord(email="alice@example.com"))
+    try:
+        sdk = MySDK()
+        sdk.save_entry({"item": "apple"})
+    finally:
+        current_user.reset(token)
+
+    token = current_user.set(UserRecord(email="bob@example.com"))
+    try:
+        sdk = MySDK()
+        sdk.save_entry({"item": "banana"})
+    finally:
+        current_user.reset(token)
 ```
 
 ### Step 2: Full-stack HTTP validation
