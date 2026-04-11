@@ -58,6 +58,12 @@ files, no framework imports in your tool code.
   `users`, `tokens`, and `health`. The admin CLI generates typed
   flags from the profile model automatically.
 
+- **Identity enforced by default.** Every tool is wrapped with
+  identity enforcement — if no user is established (HTTP middleware
+  didn't run, stdio `--user` wasn't passed), the tool returns an
+  error instead of running unauthenticated. You can't accidentally
+  ship a wide-open service.
+
 - **Deployable anywhere.** Standard container image, any platform.
   Or use [gapp](https://github.com/echomodel/gapp) for rapid
   deployment to serverless Cloud Run.
