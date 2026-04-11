@@ -20,10 +20,10 @@ This skill supports two approaches:
 
 ### Recommended: mcp-app (config-driven)
 
-[mcp-app](https://github.com/echomodel/mcp-app) is a config-driven
-framework that wraps FastMCP and Starlette. You define tools as
-plain async functions, configure via `mcp-app.yaml`, and run with
-two commands. No framework imports in your tool code.
+[mcp-app](https://github.com/echomodel/mcp-app) is a framework that
+wraps FastMCP and Starlette. You define tools as plain async functions,
+wire up with two lines in Python, and run with one command. No config
+files, no framework imports in your tool code.
 
 **What the user gets with mcp-app:**
 
@@ -132,7 +132,7 @@ For each failure, explain what's wrong and the fix.
 - [ ] `pyproject.toml` with correct dependencies and entry points
 
 ### MCP Server (mcp-app)
-- [ ] `mcp-app.yaml` present with `name` and `tools` fields
+- [ ] `create_mcp_cli(APP_NAME)` wired in `__init__.py`
 - [ ] Tools module contains plain async functions (no decorators)
 - [ ] Identity middleware runs by default (no config needed)
 - [ ] Tool docstrings are clear and user-centric
@@ -193,7 +193,6 @@ my-solution/
       main.py
   tests/
     unit/
-  mcp-app.yaml
   pyproject.toml
 ```
 
@@ -218,7 +217,6 @@ my-solution/
     my_solution_cli/  # my-solution package (CLI)
       main.py
     pyproject.toml    # depends on my-solution-sdk
-  mcp-app.yaml
   tests/
 ```
 
@@ -304,23 +302,17 @@ One `pipx install my-solution` gives three commands.
 
 ### With mcp-app (recommended)
 
-**mcp-app.yaml — minimal:**
+No config files. The app wires everything in Python:
 
-```yaml
-name: my-solution
-tools: my_solution.mcp.tools
+```python
+# my_solution/__init__.py
+from mcp_app.cli import create_mcp_cli, create_admin_cli
+
+mcp_cli = create_mcp_cli("my-solution")
+admin_cli = create_admin_cli("my-solution")
 ```
 
-Only `name` and `tools` are required. Store defaults to `filesystem`.
-Identity middleware (`user-identity`) is automatically injected in
-HTTP mode — do not configure it unless adding custom middleware.
-The goal is minimal configuration: if an app has `middleware` in
-its yaml but only lists `user-identity`, remove it — that's the
-default behavior. The `middleware` field is only needed to add
-custom middleware alongside identity or to explicitly disable
-auth with `middleware: []`.
-
-**Tools module — plain async functions:**
+Tools module — plain async functions:
 
 ```python
 # my_solution/mcp/tools.py
@@ -333,16 +325,14 @@ async def do_thing(param: str) -> dict:
     return sdk.do_thing(param)
 ```
 
-**Run (development, from repo directory):**
-```bash
-mcp-app serve   # HTTP mode
-mcp-app stdio   # stdio mode (reads yaml from cwd)
-```
+Identity middleware runs automatically in HTTP mode. Store
+defaults to filesystem. No configuration unless adding custom
+middleware.
 
-**Run (installed app, from anywhere):**
+**Run:**
 ```bash
-my-solution-mcp serve
-my-solution-mcp stdio --user local
+my-solution-mcp serve              # HTTP
+my-solution-mcp stdio --user local  # stdio
 ```
 
 ### With FastMCP (alternative)
@@ -577,12 +567,6 @@ async def test_register_and_call_tool(app_client):
 
 ### Step 3: stdio validation
 
-**Development (from repo directory):**
-```bash
-claude mcp add my-solution -- mcp-app stdio
-```
-
-**Installed app:**
 ```bash
 claude mcp add my-solution -- my-solution-mcp stdio --user local
 ```
@@ -609,7 +593,7 @@ anywhere.
 ### Option 1: gapp (fastest path to Cloud Run)
 
 [gapp](https://github.com/echomodel/gapp) auto-detects
-`mcp-app.yaml` and handles Dockerfile generation, secrets, and
+Dockerfile generation, secrets, and
 data volumes:
 
 ```yaml
@@ -758,7 +742,7 @@ present results:
 |----------|------|--------|
 | Structure | SDK layer contains all business logic | ✅ |
 | Structure | MCP tools are thin wrappers | ✅ |
-| MCP | mcp-app.yaml present | ✅ |
+| MCP | create_mcp_cli wired | ✅ |
 | Identity | current_user accessible, profile typed | ✅ |
 | CLI | Entry points for mcp + admin | ❌ |
 | Testing | SDK unit tests pass | ✅ |
