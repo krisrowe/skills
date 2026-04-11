@@ -179,11 +179,12 @@ For each failure, explain what's wrong and the fix.
 
 ## Repository Structure
 
+### Single-package (recommended for new apps)
+
 ```
 my-solution/
   my_solution/
-    __init__.py       # APP_NAME, Profile model, register_profile,
-                      # mcp_cli, admin_cli
+    __init__.py       # APP_NAME, mcp_cli, admin_cli, optional Profile
     sdk/
       core.py         # Business logic — ALL behavior here
     mcp/
@@ -196,7 +197,38 @@ my-solution/
   pyproject.toml
 ```
 
+### Multi-package (when SDK, MCP, CLI have different dependencies)
+
+Some apps separate SDK, MCP server, and CLI into independent
+installable packages so users only install what they need:
+
+```
+my-solution/
+  sdk/
+    my_solution/      # my-solution-sdk package
+      __init__.py     # APP_NAME
+      core.py
+    pyproject.toml
+  mcp/
+    my_solution_mcp/  # my-solution-mcp package
+      __init__.py     # mcp_cli, admin_cli, optional Profile
+      tools.py
+    pyproject.toml    # depends on my-solution-sdk, mcp-app
+  cli/
+    my_solution_cli/  # my-solution package (CLI)
+      main.py
+    pyproject.toml    # depends on my-solution-sdk
+  mcp-app.yaml
+  tests/
+```
+
+In multi-package repos, the mcp-app integration (`mcp_cli`,
+`admin_cli`, `register_profile`) goes in the MCP package's
+`__init__.py` — that's where mcp-app is a dependency.
+
 ### __init__.py — the app's identity
+
+**API-proxy app** (needs per-user credentials):
 
 ```python
 # my_solution/__init__.py
@@ -210,6 +242,23 @@ class Profile(BaseModel):
     token: str  # whatever the app needs per-user
 
 register_profile(Profile, expand=True)
+
+mcp_cli = create_mcp_cli(APP_NAME)
+admin_cli = create_admin_cli(APP_NAME)
+```
+
+**Data-owning app** (no per-user credentials — just identity):
+
+```python
+# my_solution/__init__.py
+APP_NAME = "my-solution"
+
+from mcp_app.cli import create_admin_cli, create_mcp_cli
+
+# No Profile model — data-owning apps don't need per-user
+# profile data. User identity comes from current_user.get().email.
+# App data lives in the store via get_store() or however the app
+# chooses to manage its own data storage.
 
 mcp_cli = create_mcp_cli(APP_NAME)
 admin_cli = create_admin_cli(APP_NAME)
@@ -341,6 +390,12 @@ class MySDK:
         store = get_store()
         store.save(user.email, "entries/today", data)
 ```
+
+The SDK reads `current_user.get().email` for user identity. How
+it stores data is the app's choice — `get_store()` provides
+mcp-app's per-user key-value store, but the SDK can also manage
+its own storage (XDG paths, custom databases, etc.) using the
+email as the scoping key.
 
 **API-proxy** (wraps external API — financial data, task management):
 
