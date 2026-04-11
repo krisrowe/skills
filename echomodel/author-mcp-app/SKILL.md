@@ -299,7 +299,13 @@ tools: my_solution.mcp.tools
 ```
 
 Only `name` and `tools` are required. Store defaults to `filesystem`.
-Identity middleware runs automatically in HTTP mode.
+Identity middleware (`user-identity`) is automatically injected in
+HTTP mode — do not configure it unless adding custom middleware.
+The goal is minimal configuration: if an app has `middleware` in
+its yaml but only lists `user-identity`, remove it — that's the
+default behavior. The `middleware` field is only needed to add
+custom middleware alongside identity or to explicitly disable
+auth with `middleware: []`.
 
 For stdio, add:
 
