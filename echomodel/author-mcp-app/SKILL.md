@@ -286,6 +286,19 @@ One `pipx install my-solution` gives three commands.
 - **No business logic in MCP tools or CLI commands.**
 - **If you're writing logic in a tool or command, stop and move it
   to SDK.**
+- **Minimize non-business code.** The goal is to write as little
+  code as possible that isn't focused on the problem domain. Use
+  mcp-app features when they eliminate boilerplate — that's what
+  the framework is for. But don't adopt features the app doesn't
+  need. Don't adopt features that don't reduce code, configuration,
+  or complexity for this specific app. When existing code handles
+  concerns that available tooling already covers — auth, user
+  management, server bootstrapping, transport, deployment,
+  infrastructure — replace it with the tooling. The goal is to
+  shed everything that isn't business logic. If the tooling covers
+  most but not all of a concern, work with the user on how to
+  close the gap rather than keeping a parallel custom
+  implementation.
 
 ## MCP Server Setup
 
