@@ -130,15 +130,25 @@ Both follow the same repo structure.
    deployment skill if one is available. The runtime contract
    in this skill tells you what the app needs; the deployment
    tool's skill knows how to configure it.
-3. **Check for existing auth.** If the app already has
-   authentication — custom middleware, a deployment tool's auth
-   wrapper, token validation, a user store — migrating to
-   mcp-app replaces all of it. Flag this to the user:
+3. **Check for existing auth and credential storage.** If the
+   app has its own authentication, token storage, or credential
+   management — custom middleware, config files, env vars for
+   tokens, auth CLI commands, a deployment tool's auth wrapper
+   — migrating to mcp-app **replaces all of it.** mcp-app's
+   user profile store IS the credential management system now.
+   Flag this to the user:
    - Existing tokens become invalid after migration
    - Existing users need to be re-registered in mcp-app's
-     user store
-   - Any stored user credentials (API keys, OAuth tokens)
-     need to migrate to mcp-app user profiles
+     user store via the admin CLI
+   - Per-user credentials (API keys, OAuth tokens) are stored
+     in mcp-app user profiles, not config files or env vars
+   - **Delete the old credential code.** Any custom token
+     storage (config files like `~/.config/*/token`, env var
+     token discovery, `auth` subcommands, `get_token()`
+     helpers) is dead code after migration. Do not create
+     fallback chains that check both old and new paths —
+     that defeats the purpose of migrating. The SDK reads
+     credentials from `current_user.get().profile`, period.
    - MCP clients (Claude.ai, Claude Code, Gemini CLI) will
      need new tokens and possibly updated endpoint URLs
    - Check for existing user data on disk or in cloud storage
