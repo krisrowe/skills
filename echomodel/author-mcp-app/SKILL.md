@@ -492,11 +492,58 @@ Remote only. No typed flags (profile model isn't loaded).
 
 ### Environment variables
 
-| Var | Required | Default | Purpose |
-|-----|----------|---------|---------|
-| `SIGNING_KEY` | For HTTP | none — required | JWT signing |
-| `JWT_AUD` | No | None | Token audience |
-| `APP_USERS_PATH` | No | XDG default | Data directory |
+| Var | Required | If Missing | Purpose |
+|-----|----------|------------|---------|
+| `SIGNING_KEY` | For HTTP | Startup fails | JWT signing key |
+| `JWT_AUD` | No | Audience not validated | Expected JWT `aud` claim |
+| `APP_USERS_PATH` | No | `~/.local/share/{name}/users/` | Per-user data directory |
+| `TOKEN_DURATION_SECONDS` | No | 315360000 (~10yr) | Token lifetime in seconds |
+
+**`SIGNING_KEY`** — a secret. Never commit it to the repo, never
+put it in a checked-in config file. Generate a strong random value:
+
+```bash
+python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
+```
+
+How the signing key gets into the environment depends on the
+deployment tool. Work with the user to determine the right
+approach for their setup. Common patterns:
+
+- **CI/CD secrets** — e.g., GitHub Actions secrets injected as
+  env vars during deployment
+- **Cloud secret managers** — e.g., GCP Secret Manager, AWS
+  Secrets Manager, mapped to the env var by the deployment tool
+- **Deployment tool generated** — some tools (e.g., Terraform's
+  `random_password`) can generate and manage the secret directly
+
+The goal: the secret is stored safely and injected into the
+`SIGNING_KEY` env var wherever the server runs. The agent should
+guide the user through this for their specific deployment path.
+
+**`JWT_AUD`** — optional. If unset, audience is not validated and
+any valid JWT signed with the same key is accepted. If multiple
+apps share the same signing key but do not set `JWT_AUD` (or set
+it to the same value), they will accept each other's user tokens.
+This may be intentional (shared auth across a suite of apps) or
+undesirable (cross-app token leakage). If each app has a unique
+signing key, audience validation is less critical. Discuss with
+the user and let them decide.
+
+**`APP_USERS_PATH`** — critical for any deployment where the
+filesystem is not persistent. The default (`~/.local/share/{name}/users/`)
+works on a developer's laptop. In a container, this path is
+ephemeral — the app starts, users get registered, tools execute,
+and then user data is silently lost on container restart. No error,
+no warning. For any persistent deployment, this must point to a
+mounted volume or persistent storage path. Make the user aware of
+this and confirm the path is durable before considering deployment
+complete.
+
+**`TOKEN_DURATION_SECONDS`** — defaults to ~10 years, which
+effectively means tokens are permanent. If the user wants tokens
+to expire sooner, set this. The value applies to newly issued
+tokens only — existing tokens keep their original expiry.
 
 ## Testing and Validation
 
@@ -611,30 +658,62 @@ All tests must pass before the compliance dashboard.
 ## Deployment
 
 The solution is a standard Python app. It deploys as a container
-anywhere.
+or a process on any platform. This section describes what the app
+needs from its environment — the runtime contract — and then
+covers containerization and deployment routes.
 
-### Option 1: gapp (fastest path to Cloud Run)
+### Running locally
 
-[gapp](https://github.com/echomodel/gapp) auto-detects
-Dockerfile generation, secrets, and
-data volumes:
-
-```yaml
-# gapp.yaml
-public: true
-env:
-  - name: SIGNING_KEY
-    secret:
-      generate: true
-  - name: APP_USERS_PATH
-    value: "{{SOLUTION_DATA_PATH}}/users"
-```
-
+**stdio** — no auth, no signing key. The MCP client launches the
+process:
 ```bash
-gapp deploy
+my-solution-mcp stdio --user local
 ```
 
-### Option 2: Docker (any container platform)
+**HTTP** — requires `SIGNING_KEY` at minimum:
+```bash
+SIGNING_KEY=your-key my-solution-mcp serve
+```
+
+With all options:
+```bash
+SIGNING_KEY=your-key \
+APP_USERS_PATH=/data/my-solution/users \
+JWT_AUD=my-solution \
+TOKEN_DURATION_SECONDS=2592000 \
+  my-solution-mcp serve --host 0.0.0.0 --port 8080
+```
+
+### Runtime contract
+
+Any deployment target must provide:
+
+- **Start command:** `my-solution-mcp serve` (optionally
+  `--host` and `--port`, defaults to `0.0.0.0:8080`)
+- **Environment variables:** see the environment variables
+  section above — at minimum `SIGNING_KEY` (secret) and
+  `APP_USERS_PATH` (persistent path) for any durable deployment
+- **Health check:** `GET /health` — no auth required, returns
+  `{"status": "ok"}`
+- **Auth model:** the app handles its own auth via JWT. If the
+  platform has its own auth gate (e.g., IAM, API gateway), it
+  must allow unauthenticated traffic through to the app
+- **Build root:** the repo root where `pyproject.toml` lives
+
+**Docker example:**
+```bash
+docker build -t my-solution .
+docker run -p 8080:8080 \
+  -e SIGNING_KEY=your-key \
+  -v /persistent/path:/data \
+  -e APP_USERS_PATH=/data/users \
+  my-solution
+```
+
+### Containerizing
+
+If the deployment target needs a container image, add a
+Dockerfile to the repo root:
 
 ```dockerfile
 FROM python:3.11-slim
@@ -642,58 +721,191 @@ WORKDIR /app
 COPY . /app
 RUN pip install -e .
 EXPOSE 8080
-CMD ["mcp-app", "serve"]
+CMD ["my-solution-mcp", "serve"]
 ```
+
+The build context is the repo root. `pip install -e .` installs
+the solution package (which depends on mcp-app). The app listens
+on port 8080 by default.
+
+Some deployment tools (e.g., gapp, Cloud Build, Buildpacks)
+generate or manage the Dockerfile for you. Check your tool's
+documentation before writing one manually.
+
+### Deployment routes
+
+mcp-app does not prescribe a deployment tool. Common options:
+
+- **Bare metal / VPS** — `pip install -e . && my-solution-mcp serve`
+  with env vars set in the shell or a process manager
+- **Docker** — build the image, run it with `-e SIGNING_KEY=...`
+  and a volume mount for `APP_USERS_PATH`
+- **Cloud Run / similar** — deploy from source or from a container
+  image, set env vars and secrets through the platform
+- **gapp** — if you're using the echomodel skill collection,
+  there is a deploy skill that handles infrastructure, secrets,
+  and data volumes for Cloud Run. Invoke it — it will guide
+  through setup, secret configuration, and deployment using
+  the runtime contract above.
+
+When using a deployment skill, invoke it now. The runtime
+contract, env var requirements, and auth model are already in
+your context — map them to the deployment tool's configuration.
+After deployment completes, continue below with post-deploy
+verification and user management.
+
+Regardless of route, the agent must ensure:
+1. `SIGNING_KEY` is sourced from a secrets store or generated by
+   the deployment tool — never hardcoded or checked in
+2. `APP_USERS_PATH` points to persistent storage — not the
+   container's ephemeral filesystem
+3. The platform allows unauthenticated HTTP traffic through to
+   the app (mcp-app handles auth internally)
+
+### Post-deploy verification
+
+After the app is running, verify in order:
+
+**1. Liveness** — confirm the process is up:
+```bash
+curl https://your-service/health
+# {"status": "ok"}
+```
+
+**2. Admin auth** — confirm admin JWT works and the store is
+connected. Use the signing key to issue an admin token, then
+list users:
+```bash
+my-solution-admin connect https://your-service --signing-key xxx
+my-solution-admin users list
+```
+
+**3. Register a user** — create the first user and get their
+token:
+```bash
+my-solution-admin users add alice@example.com
+# Returns: {"email": "alice@example.com", "token": "..."}
+```
+
+For API-proxy apps with a profile model:
+```bash
+my-solution-admin users add alice@example.com --token api-key-xxx
+```
+
+**4. User auth** — confirm user JWT works end-to-end by calling
+`tools/list` with the user's token. This goes through the user
+JWT middleware (not admin), loads the user record from the store,
+and returns the registered tools:
+```bash
+curl -X POST https://your-service/ \
+  -H "Authorization: Bearer USER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "tools/list", "id": 1}'
+```
+
+If this returns the tool list, user auth works, the store loaded
+the user record, and tools are wired. The app is fully operational.
+
+### User management
+
+**Three CLI entry points per app:**
 
 ```bash
-docker build -t my-solution .
-docker run -p 8080:8080 -e SIGNING_KEY=your-key my-solution
-
-# Deploy to Google Cloud Run
-gcloud run deploy my-solution \
-  --source . \
-  --allow-unauthenticated \
-  --set-env-vars SIGNING_KEY=your-key
+my-solution              # app's own CLI (optional)
+my-solution-mcp serve    # HTTP server
+my-solution-mcp stdio --user local  # stdio (local, single user)
+my-solution-admin        # user management
 ```
 
-The Dockerfile works on any container platform. Cloud Run is shown
-as a concrete example.
+**Managing users (local or remote):**
 
-### After deployment: MCP client registration
+```bash
+# Connect to local store (for stdio apps on this machine)
+my-solution-admin connect local
 
-**Claude Code (stdio — installed app):**
+# Connect to a deployed instance
+my-solution-admin connect https://your-service --signing-key xxx
+
+# All subsequent commands route automatically
+my-solution-admin users add alice@example.com
+my-solution-admin users add bob@example.com --token api-key-xxx
+my-solution-admin users list
+my-solution-admin users revoke alice@example.com
+my-solution-admin health  # remote only
+```
+
+**Issuing new tokens** (e.g., if a user loses theirs):
+```bash
+my-solution-admin tokens create alice@example.com
+```
+
+The token returned from `users add` or `tokens create` is what
+the user puts in their MCP client configuration.
+
+**Generic CLI** (when the app's admin CLI isn't installed locally):
+```bash
+mcp-app setup https://your-service --signing-key xxx
+mcp-app users add alice@example.com --profile '{"token": "xxx"}'
+```
+
+### MCP client registration
+
+#### stdio (local)
+
+No signing key needed — stdio has no JWT auth.
+
+**CLI registration:**
 ```bash
 claude mcp add my-solution -- my-solution-mcp stdio --user local
+gemini mcp add my-solution -- my-solution-mcp stdio --user local
 ```
 
-**Claude Code (HTTP — remote):**
+**Manual config** (`~/.claude.json` or `~/.gemini/settings.json`):
+```json
+{
+  "mcpServers": {
+    "my-solution": {
+      "command": "my-solution-mcp",
+      "args": ["stdio", "--user", "local"]
+    }
+  }
+}
+```
+
+#### HTTP (remote)
+
+**CLI registration:**
 ```bash
 claude mcp add --transport http my-solution \
-  https://your-service.run.app/ \
+  https://your-service/ \
   --header "Authorization: Bearer USER_TOKEN"
 ```
 
-**Claude.ai / Claude mobile / Claude Code (remote via URL):**
-```
-https://your-service.run.app/?token=USER_TOKEN
-```
-
-Remote MCP servers added through Claude.ai are available across all
-Claude clients — web, mobile app, and Claude Code.
-
-### After deployment: user management
-
-```bash
-# Remote — via admin CLI
-my-solution-admin connect https://your-service.run.app --signing-key xxx
-my-solution-admin users add alice --token api-key-xxx
-
-# Or via generic CLI
-mcp-app setup https://your-service.run.app --signing-key xxx
-mcp-app users add alice --profile '{"token": "api-key-xxx"}'
+**Manual config** (`~/.claude.json` or `~/.gemini/settings.json`):
+```json
+{
+  "mcpServers": {
+    "my-solution": {
+      "url": "https://your-service/",
+      "headers": {
+        "Authorization": "Bearer ${MY_SOLUTION_TOKEN}"
+      }
+    }
+  }
+}
 ```
 
-The token returned is what the user puts in their MCP client config.
+Both Claude Code and Gemini CLI support `${VAR}` expansion —
+reference a host environment variable instead of pasting tokens
+into config files.
+
+**Claude.ai / Claude mobile (remote via URL):**
+```
+https://your-service/?token=USER_TOKEN
+```
+
+Remote MCP servers added through Claude.ai are available across
+all Claude clients — web, mobile, and Claude Code.
 
 ## Gitignore
 
