@@ -856,7 +856,12 @@ TOKEN_DURATION_SECONDS=2592000 \
 Any deployment target must provide:
 
 - **Start command:** `my-solution-mcp serve` (optionally
-  `--host` and `--port`, defaults to `0.0.0.0:8080`)
+  `--host` and `--port`, defaults to `0.0.0.0:8080`).
+  This is a CLI command, not an importable ASGI module path.
+  mcp-app does not expose a module-level ASGI app variable —
+  it builds the ASGI app internally at startup. Deployment
+  tools that distinguish between a raw command and an ASGI
+  entrypoint must use the command form.
 - **Environment variables:** see the environment variables
   section above — at minimum `SIGNING_KEY` (secret) and
   `APP_USERS_PATH` (persistent path) for any durable deployment
