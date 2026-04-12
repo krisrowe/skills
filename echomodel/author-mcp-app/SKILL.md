@@ -124,10 +124,23 @@ Both follow the same repo structure.
 
 1. Check the mcp-app framework version (see below)
 2. Read the existing codebase to understand current structure
-3. Walk through the Compliance Checklist, noting conformance
-4. Propose a migration plan in priority order
-5. Execute with the user's approval
-6. Run the checklist again to verify
+3. **Check for existing auth.** If the app already has
+   authentication — custom middleware, a deployment tool's auth
+   wrapper, token validation, a user store — migrating to
+   mcp-app replaces all of it. Flag this to the user:
+   - Existing tokens become invalid after migration
+   - Existing users need to be re-registered in mcp-app's
+     user store
+   - Any stored user credentials (API keys, OAuth tokens)
+     need to migrate to mcp-app user profiles
+   - MCP clients (Claude.ai, Claude Code, Gemini CLI) will
+     need new tokens and possibly updated endpoint URLs
+   - Check for existing user data on disk or in cloud storage
+     that may need format conversion
+4. Walk through the Compliance Checklist, noting conformance
+5. Propose a migration plan in priority order
+6. Execute with the user's approval
+7. Run the checklist again to verify
 
 ### Mode 3: Review — Evaluate Against Standards
 
