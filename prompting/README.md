@@ -11,6 +11,7 @@ automatically by the agent.
 | [`capture-context`](capture-context/) | End-of-session audit and handoff: catalog completed work, surface unresolved items, propose durable capture destinations, and ensure nothing from the session is lost before exit. |
 | [`extend-document`](extend-document/) | Safely append or integrate new content into an existing document without losing original content. Use when adding research findings, session notes, or new sections to an existing `.md` file. |
 | [`for-later`](for-later/) | Cheap, non-disruptive capture of a topic the user wants to defer until later in the session. Records without analysis, continues in-flight work uninterrupted, and resurfaces the item at natural review points for disposition. |
+| [`retrospective`](retrospective/) | End-of-session workflow analysis: timeline of errors and retries, skill and tool effectiveness audit, project documentation gaps, external knowledge dependencies, permission anomalies, and concrete improvement recommendations. |
 
 ## A note on organization
 
