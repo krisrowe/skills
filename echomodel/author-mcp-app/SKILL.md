@@ -122,16 +122,38 @@ Both follow the same repo structure.
 
 ### Mode 2: Migration — Port an Existing App
 
-1. Read the existing codebase to understand current structure
-2. Walk through the Compliance Checklist, noting conformance
-3. Propose a migration plan in priority order
-4. Execute with the user's approval
-5. Run the checklist again to verify
+1. Check the mcp-app framework version (see below)
+2. Read the existing codebase to understand current structure
+3. Walk through the Compliance Checklist, noting conformance
+4. Propose a migration plan in priority order
+5. Execute with the user's approval
+6. Run the checklist again to verify
 
 ### Mode 3: Review — Evaluate Against Standards
 
-Run the Compliance Checklist and present results as a table.
-For each failure, explain what's wrong and the fix.
+1. Check the mcp-app framework version (see below)
+2. Run the Compliance Checklist and present results as a table
+3. For each failure, explain what's wrong and the fix
+
+### Checking the mcp-app framework version
+
+For any existing app that already depends on mcp-app, ensure
+the installed version is current before proceeding. Check how
+the dependency is declared (e.g., in `pyproject.toml`) and
+whether it pins a specific version or commit.
+
+If it points to a git URL with no pin (e.g.,
+`mcp-app @ git+https://...`), the installed version may be
+stale even though the dependency declaration looks correct.
+Reinstall to pull the latest:
+
+```bash
+pip install -e . --upgrade
+```
+
+If the app pins a specific version or commit, confirm with the
+user whether they want to update before making changes that
+may depend on newer framework features.
 
 ## Compliance Checklist
 
