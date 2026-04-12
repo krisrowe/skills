@@ -123,7 +123,13 @@ Both follow the same repo structure.
 ### Mode 2: Migration — Port an Existing App
 
 1. Check the mcp-app framework version (see below)
-2. Read the existing codebase to understand current structure
+2. Read the existing codebase to understand current structure.
+   **If deployment config exists** (e.g., `gapp.yaml`,
+   Dockerfile, CI config) — do not modify it directly. When
+   you reach deployment configuration, invoke the appropriate
+   deployment skill if one is available. The runtime contract
+   in this skill tells you what the app needs; the deployment
+   tool's skill knows how to configure it.
 3. **Check for existing auth.** If the app already has
    authentication — custom middleware, a deployment tool's auth
    wrapper, token validation, a user store — migrating to
