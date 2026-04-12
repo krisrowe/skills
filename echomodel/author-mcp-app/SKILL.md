@@ -153,6 +153,13 @@ Both follow the same repo structure.
      need new tokens and possibly updated endpoint URLs
    - Check for existing user data on disk or in cloud storage
      that may need format conversion
+   - **If a working remote deployment exists**, connect to it
+     with the admin CLI to retrieve existing user credentials
+     for local registration. Don't ask the user to manually
+     extract tokens from browsers or config files when the
+     data is already accessible through the running service.
+     Use the deployment tool's skills to discover connection
+     details (URL, signing key) if needed.
 4. Walk through the Compliance Checklist, noting conformance
 5. Propose a migration plan in priority order
 6. Execute with the user's approval
