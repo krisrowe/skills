@@ -888,8 +888,15 @@ Any deployment target must provide:
 - **Environment variables:** see the environment variables
   section above — at minimum `SIGNING_KEY` (secret) and
   `APP_USERS_PATH` (persistent path) for any durable deployment
+- **MCP endpoint path:** `/` (root). mcp-app serves the MCP
+  SSE/streamable transport at the root path, not `/mcp`. MCP
+  clients connect to `https://host:port/`, not
+  `https://host:port/mcp`. If a previous deployment served at
+  a different path, client URLs must be updated.
 - **Health check:** `GET /health` — no auth required, returns
   `{"status": "ok"}`
+- **Admin API:** `POST/GET /admin/users`, `DELETE /admin/users/{email}`,
+  `POST /admin/tokens` — all require admin auth via signing key
 - **Auth model:** the app handles its own auth via JWT. If the
   platform has its own auth gate (e.g., IAM, API gateway), it
   must allow unauthenticated traffic through to the app
