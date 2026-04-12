@@ -385,21 +385,55 @@ docstring → description, type hints → schema. Functions starting
 with `_` are skipped.
 
 **Import carefully.** Any async function imported into the tools
-module becomes a tool — including SDK functions. Prefer
-class-based SDKs (import the class, call methods on an instance)
-which avoids this entirely. If the SDK exposes standalone async
-functions, import with underscore prefix:
+module becomes a tool — including SDK functions. Always use a
+class-based SDK so tools call `sdk.method()` and SDK methods
+stay hidden from discovery.
+
+**SDK has state** (config, file paths, store) — instantiate:
+```python
+# Data-owning app (e.g., food logger with local storage)
+from my_solution.sdk.core import MySDK
+sdk = MySDK()  # holds config, paths
+
+async def do_thing(param: str) -> dict:
+    """Do the thing."""
+    return sdk.do_thing(param)
+```
+
+**SDK is stateless** (just wraps an external API) — use the
+class as a namespace via classmethods, no pointless instance:
+```python
+# API-proxy app (e.g., wraps a financial API)
+from my_solution.sdk.core import MySDK
+sdk = MySDK  # the class itself, not an instance
+
+async def list_items() -> dict:
+    """List items."""
+    return await sdk.list_items()
+```
 
 ```python
-# GOOD — class-based, no leakage risk
-from my_solution.sdk.core import MySDK
-sdk = MySDK()
+# my_solution/sdk/core.py
+class MySDK:
+    @classmethod
+    def _client(cls):
+        user = current_user.get()
+        return MyClient(token=user.profile.token)
 
-# GOOD — underscore prefix, skipped by discovery
+    @classmethod
+    async def list_items(cls) -> dict:
+        client = cls._client()
+        return await client.get_items()
+```
+
+Both patterns prevent leakage. The class groups methods and
+keeps client creation in one place.
+
+**Escape hatch for existing function-based SDKs:** if
+refactoring to a class isn't worth it, import with underscore
+prefix:
+```python
 from my_solution.sdk import get_items as _get_items
-
-# BAD — imported async function becomes an MCP tool
-from my_solution.sdk import get_items
 ```
 
 Identity middleware runs automatically in HTTP mode. Store
