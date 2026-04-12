@@ -861,6 +861,13 @@ Regardless of route, the agent must ensure:
 
 ### Post-deploy verification
 
+Before verifying, ensure the app's admin CLI is installed and
+on PATH. Check with `which my-solution-admin`. If not found,
+install the app package that provides the admin entry point
+(`pip install -e .` or `pipx install .` from the repo, depending
+on the project's layout). Also ensure mcp-app is at the latest
+version (see "Checking the mcp-app framework version" above).
+
 After the app is running, verify in order:
 
 **1. Liveness** — confirm the process is up:
