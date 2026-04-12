@@ -366,7 +366,7 @@ from my_solution.mcp import tools
 app = App(name="my-solution", tools_module=tools)
 ```
 
-Tools module — plain async functions:
+Tools module — plain async functions that call SDK methods:
 
 ```python
 # my_solution/mcp/tools.py
@@ -377,6 +377,29 @@ sdk = MySDK()
 async def do_thing(param: str) -> dict:
     """Do the thing for the current user."""
     return sdk.do_thing(param)
+```
+
+**Tool discovery:** mcp-app registers all public async functions
+in the tools module as MCP tools. Function name → tool name,
+docstring → description, type hints → schema. Functions starting
+with `_` are skipped.
+
+**Import carefully.** Any async function imported into the tools
+module becomes a tool — including SDK functions. Prefer
+class-based SDKs (import the class, call methods on an instance)
+which avoids this entirely. If the SDK exposes standalone async
+functions, import with underscore prefix:
+
+```python
+# GOOD — class-based, no leakage risk
+from my_solution.sdk.core import MySDK
+sdk = MySDK()
+
+# GOOD — underscore prefix, skipped by discovery
+from my_solution.sdk import get_items as _get_items
+
+# BAD — imported async function becomes an MCP tool
+from my_solution.sdk import get_items
 ```
 
 Identity middleware runs automatically in HTTP mode. Store
