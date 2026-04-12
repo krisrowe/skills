@@ -151,6 +151,20 @@ Reinstall to pull the latest:
 pip install -e . --upgrade
 ```
 
+After upgrading, if `tests/framework/` exists, run it:
+
+```bash
+pytest tests/framework/ -v
+```
+
+If it passes, the app is compatible with the new version. If
+any tests fail, investigate before proceeding — the failure
+may indicate an API change the app needs to adapt to.
+
+If `tests/framework/` does not exist, that's a compliance gap
+— adopt the framework test suite (see Step 5 in Testing and
+Validation).
+
 If the app pins a specific version or commit, confirm with the
 user whether they want to update before making changes that
 may depend on newer framework features.
@@ -198,6 +212,9 @@ may depend on newer framework features.
 - [ ] Full-stack HTTP tests using httpx ASGI transport
 - [ ] No mocks unless needed for network I/O
 - [ ] Tests use temp dirs and env vars for isolation
+- [ ] mcp-app framework test suite — if `tests/framework/` exists,
+  run `pytest tests/framework/ -v`. If it doesn't, set it up
+  (see Step 5 in Testing and Validation)
 
 ### Documentation
 - [ ] README.md with quick start, deployment, config
@@ -671,6 +688,64 @@ pytest tests/unit/ -v
 
 All tests must pass before the compliance dashboard.
 
+### Step 5: mcp-app framework test suite
+
+mcp-app ships reusable tests that check auth enforcement,
+user admin, JWT handling, CLI wiring, tool protocol compliance,
+and SDK test coverage — against YOUR app. These are the
+authoritative verification that the app is correctly built on
+the framework.
+
+**Check if `tests/framework/` exists.** If it does, run it:
+
+```bash
+pytest tests/framework/ -v
+```
+
+If it passes, the app is verified. If it fails, investigate —
+the failure is either a real compliance issue or an upstream
+bug (check mcp-app's issue tracker).
+
+**If `tests/framework/` does not exist, create it now:**
+
+`tests/framework/conftest.py` — the only file that differs
+per app (points at your `App` object):
+
+```python
+import pytest
+from my_solution import app as my_app
+
+@pytest.fixture(scope="session")
+def app():
+    return my_app
+```
+
+`tests/framework/test_framework.py` — identical across all
+mcp-app solutions:
+
+```python
+from mcp_app.testing.iam import *
+from mcp_app.testing.wiring import *
+from mcp_app.testing.tools import *
+from mcp_app.testing.health import *
+```
+
+Then run:
+
+```bash
+pytest tests/framework/ -v
+```
+
+Zero failures means: auth works, admin works, tools are wired,
+identity is enforced, and the SDK has test coverage for every
+tool.
+
+**When to run these tests:**
+- After adopting the framework test suite for the first time
+- After upgrading mcp-app to a newer version
+- After any migration or structural change
+- As part of any compliance review
+
 ### When to stub
 
 - **Network I/O** — stub HTTP clients, external API calls
@@ -987,45 +1062,10 @@ Covers: architecture, testing, conventions, how to add features.
 }
 ```
 
-## Final Step: Adopt mcp-app's Test Suite and Confirm
+## Compliance Dashboard
 
-**The definitive confirmation that the solution is correctly built
-is that mcp-app's test suite passes against it.** This is the last
-thing to do — after structure, code, docs, and deployment config
-are in place.
-
-### 1. Create `tests/framework/conftest.py`
-
-```python
-import pytest
-from my_solution import app
-
-@pytest.fixture(scope="session")
-def app():
-    return app
-```
-
-### 2. Create `tests/framework/test_framework.py`
-
-```python
-from mcp_app.testing.iam import *
-from mcp_app.testing.wiring import *
-from mcp_app.testing.tools import *
-from mcp_app.testing.health import *
-```
-
-### 3. Run everything
-
-```bash
-pytest tests/
-```
-
-These tests check auth enforcement (401/403), user admin (local
-and remote), CLI wiring, tool protocol compliance (docstrings,
-return types), SDK test coverage for every tool, and health
-endpoint. They run against YOUR app — not the framework.
-
-### 4. Present the compliance dashboard
+After all testing and validation steps are complete (including
+the framework test suite from Step 5), present the dashboard:
 
 ```
 ## Solution Compliance Dashboard: {APP_NAME}
