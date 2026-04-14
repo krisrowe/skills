@@ -88,15 +88,46 @@ re-register all users (existing tokens become invalid).
 
 ## Step 2: Connect the Admin CLI
 
-The admin CLI needs the service URL and signing key. There are
-two CLIs that can do this:
+The admin CLI needs the service URL and signing key. First,
+check if the app's own admin CLI is available:
 
-**App-specific admin CLI** (preferred — has typed profile flags):
+```bash
+which my-solution-admin
+```
+
+If not found, install the package that provides the admin
+entry point. Check the solution's `pyproject.toml` for
+`[project.scripts]` to find which package declares
+`my-solution-admin`. In single-package repos this is the root
+package. In multi-package repos (separate sdk/, mcp/, cli/
+directories each with their own pyproject.toml), the admin CLI
+is typically in the mcp package:
+
+```bash
+# Single-package repo
+pipx install git+https://github.com/owner/my-solution.git
+
+# Multi-package repo — install the mcp package
+pipx install -e mcp/
+
+# Or from a local clone of a single-package repo
+pipx install -e .
+```
+
+Then verify the admin entry point is available:
+```bash
+my-solution-admin --help
+```
+
+**App-specific admin CLI** (preferred — has typed profile flags
+derived from the app's profile model):
 ```bash
 my-solution-admin connect https://your-service --signing-key xxx
 ```
 
-**Generic mcp-app CLI** (when the app's admin CLI isn't installed):
+**Generic mcp-app CLI** (fallback when the app's admin CLI
+can't be installed — e.g., working from a machine without the
+app's repo):
 ```bash
 mcp-app setup https://your-service --signing-key xxx
 ```
