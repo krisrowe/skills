@@ -29,11 +29,11 @@ solution was deployed and how `SIGNING_KEY` was configured:
 
 - **gapp.yaml** with `secret: { name: ..., generate: true }` —
   gapp generated and stored the key in GCP Secret Manager.
-  Retrieve it with the gapp secrets CLI or MCP tools:
+  Retrieve it using the secret's short name from gapp.yaml:
   ```bash
-  gapp secrets get SIGNING_KEY --raw
+  gapp secrets get <secret-name> --raw
   ```
-  Or: `gapp_secret_get(env_var_name="SIGNING_KEY", plaintext=True)`
+  Or: `gapp_secret_get(name="signing-key", plaintext=True)`
 
 - **Terraform** managing the secret (e.g., `random_password`
   resource) — the value is in Terraform state. Retrieve with:
@@ -103,7 +103,7 @@ mcp-app setup https://your-service --signing-key xxx
 
 If piping the signing key from a secrets tool:
 ```bash
-gapp secrets get SIGNING_KEY --raw | \
+gapp secrets get signing-key --raw | \
   my-solution-admin connect https://your-service --signing-key-stdin
 ```
 
