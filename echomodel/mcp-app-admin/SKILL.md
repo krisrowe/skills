@@ -1,6 +1,6 @@
 ---
 name: mcp-app-admin
-description: "Operate and manage deployed mcp-app solutions. Use when asked to verify a deployment, connect the admin CLI, retrieve a signing key, register users, issue tokens, revoke access, test a deployed service end-to-end, set up MCP client connections, or troubleshoot post-deploy auth — \"deploy and test\", \"redeploy and verify\", \"manage users\", \"add a user\", \"get the signing key\", \"connect the admin CLI\", \"register with Claude.ai\", \"why can't I connect\", \"test the deployment\", \"list users\", \"revoke bob\", \"issue a new token\", etc."
+description: Operate and manage deployed MCP apps or solutions that use the mcp-app framework. Use when asked to verify a deployment, connect the admin CLI, retrieve a signing key, register or manage users, issue or revoke tokens, update a user's profile with a fresh third-party token for a backend API that the MCP server provides tools for or proxies, test a deployed service end-to-end, configure a deployed MCP server for use in Claude, Gemini, or other agent platforms, or troubleshoot post-deploy auth. Triggers on verify deployment, test the deployed service, manage users, add a user, list users, revoke a user, update a token, refresh a credential, get the signing key, connect the admin CLI, configure MCP client, issue a new token, and similar post-deploy operational tasks on running mcp-app services.
 ---
 
 # mcp-app Admin
