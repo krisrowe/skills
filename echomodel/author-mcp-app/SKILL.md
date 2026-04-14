@@ -1,6 +1,6 @@
 ---
 name: author-mcp-app
-description: "Build, structure, migrate, or review Python MCP servers and web APIs. Use when asked to create a new MCP server, structure a solution repo, add multi-user auth, set up a data store, migrate an existing app, review an app against standards, or any question about building a deployable Python MCP service — \"create an MCP server\", \"add auth to my app\", \"how should I structure this\", \"set up user management\", \"make this multi-user\", \"review my solution\", \"is this ready to deploy\", etc."
+description: "Build, structure, deploy, and manage Python MCP servers and web APIs. Use when asked to create a new MCP server, structure a solution repo, add multi-user auth, set up a data store, migrate an existing app, review an app against standards, deploy and test a solution, manage users on a deployed instance, connect an admin CLI, or any question about building or operating a deployable Python MCP service — \"create an MCP server\", \"add auth to my app\", \"deploy and test this\", \"redeploy and verify\", \"set up user management\", \"manage users\", \"connect the admin CLI\", \"how do I get the signing key\", \"make this multi-user\", \"review my solution\", \"is this ready to deploy\", etc."
 disable-model-invocation: false
 user-invocable: true
 ---
@@ -592,35 +592,18 @@ constructed — no separate `register_profile()` call needed.
 
 ### User management
 
-**Three CLI entry points per app:**
+Each mcp-app solution generates three CLI entry points:
 
 ```bash
-# App CLI — the app itself (if it has one)
-my-solution do-something
-
-# MCP server
-my-solution-mcp serve
-my-solution-mcp stdio --user local
-
-# Admin — user management
-my-solution-admin connect local
-my-solution-admin users add alice --token xxx
-my-solution-admin users list
-my-solution-admin users revoke alice
-my-solution-admin health
+my-solution              # app's own CLI (optional)
+my-solution-mcp serve    # MCP server (HTTP or stdio)
+my-solution-admin        # admin: connect, users, tokens, health
 ```
 
-`connect local` writes to the local filesystem store. `connect <url>`
-manages users on a deployed instance via HTTP admin API.
-
-**Generic CLI (no app installed):**
-
-```bash
-mcp-app setup https://my-app.run.app --signing-key xxx
-mcp-app users add alice --profile '{"token": "xxx"}'
-```
-
-Remote only. No typed flags (profile model isn't loaded).
+The admin CLI handles user registration, token issuance, and
+revocation for both local and remote instances. The
+`mcp-app-admin` skill, if available, covers the full admin
+workflow including signing key retrieval from deployment tooling.
 
 ### Environment variables
 
@@ -652,6 +635,15 @@ approach for their setup. Common patterns:
 The goal: the secret is stored safely and injected into the
 `SIGNING_KEY` env var wherever the server runs. The agent should
 guide the user through this for their specific deployment path.
+
+**After deploy, you need the signing key back** to configure the
+admin CLI for user management. The deployment tool that created
+or stored the secret must provide a way to retrieve it. If you're
+using a deployment skill, check whether it has a secrets get/read
+command. For example, with gapp: `gapp_secret_get(env_var_name=
+"SIGNING_KEY", plaintext=True)`. Without a deployment tool, read
+the secret directly from wherever it was stored (cloud secret
+manager, CI/CD secrets, etc.).
 
 **`JWT_AUD`** — optional. If unset, audience is not validated and
 any valid JWT signed with the same key is accepted. If multiple
@@ -964,158 +956,33 @@ Regardless of route, the agent must ensure:
 3. The platform allows unauthenticated HTTP traffic through to
    the app (mcp-app handles auth internally)
 
-### Post-deploy verification
+### Post-deploy: admin setup, users, and verification
 
-Before verifying, ensure the app's admin CLI is installed and
-on PATH. Check with `which my-solution-admin`. If not found,
-install the app package that provides the admin entry point
-(`pip install -e .` or `pipx install .` from the repo, depending
-on the project's layout). Also ensure mcp-app is at the latest
-version (see "Checking the mcp-app framework version" above).
+After deployment, the next steps are: retrieve the signing key
+from the deployment environment, connect the admin CLI, register
+users, and verify end-to-end auth. The `mcp-app-admin` skill, if
+available, covers this workflow in detail — including how to trace
+the signing key through various deployment tools (gapp, Terraform,
+cloud secret managers, Docker, CI/CD secrets).
 
-After the app is running, verify in order:
-
-**1. Liveness** — confirm the process is up:
-```bash
-curl https://your-service/health
-# {"status": "ok"}
-```
-
-**2. Admin auth** — confirm admin JWT works and the store is
-connected. Use the signing key to issue an admin token, then
-list users:
-```bash
-my-solution-admin connect https://your-service --signing-key xxx
-my-solution-admin users list
-```
-
-**3. Register a user** — create the first user and get their
-token:
-```bash
-my-solution-admin users add alice@example.com
-# Returns: {"email": "alice@example.com", "token": "..."}
-```
-
-For API-proxy apps with a profile model:
-```bash
-my-solution-admin users add alice@example.com --token api-key-xxx
-```
-
-**4. User auth** — confirm user JWT works end-to-end by calling
-`tools/list` with the user's token. This goes through the user
-JWT middleware (not admin), loads the user record from the store,
-and returns the registered tools:
-```bash
-curl -X POST https://your-service/ \
-  -H "Authorization: Bearer USER_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
-  -d '{"jsonrpc": "2.0", "method": "tools/list", "id": 1}'
-```
-
-If this returns the tool list, user auth works, the store loaded
-the user record, and tools are wired. The app is fully operational.
-
-### User management
-
-**Three CLI entry points per app:**
+**Quick reference** (see `mcp-app-admin` for full guidance):
 
 ```bash
-my-solution              # app's own CLI (optional)
-my-solution-mcp serve    # HTTP server
-my-solution-mcp stdio --user local  # stdio (local, single user)
-my-solution-admin        # user management
-```
-
-**Managing users (local or remote):**
-
-```bash
-# Connect to local store (for stdio apps on this machine)
-my-solution-admin connect local
-
-# Connect to a deployed instance
+# Connect admin CLI (signing key from your deployment tool)
 my-solution-admin connect https://your-service --signing-key xxx
 
-# All subsequent commands route automatically
-my-solution-admin users add alice@example.com
-my-solution-admin users add bob@example.com --token api-key-xxx
+# Verify
+my-solution-admin health
 my-solution-admin users list
-my-solution-admin users revoke alice@example.com
-my-solution-admin health  # remote only
-```
 
-**Issuing new tokens** (e.g., if a user loses theirs):
-```bash
-my-solution-admin tokens create alice@example.com
-```
+# Register a user
+my-solution-admin users add alice@example.com
 
-The token returned from `users add` or `tokens create` is what
-the user puts in their MCP client configuration.
-
-**Generic CLI** (when the app's admin CLI isn't installed locally):
-```bash
-mcp-app setup https://your-service --signing-key xxx
-mcp-app users add alice@example.com --profile '{"token": "xxx"}'
-```
-
-### MCP client registration
-
-#### stdio (local)
-
-No signing key needed — stdio has no JWT auth.
-
-**CLI registration:**
-```bash
-claude mcp add my-solution -- my-solution-mcp stdio --user local
-gemini mcp add my-solution -- my-solution-mcp stdio --user local
-```
-
-**Manual config** (`~/.claude.json` or `~/.gemini/settings.json`):
-```json
-{
-  "mcpServers": {
-    "my-solution": {
-      "command": "my-solution-mcp",
-      "args": ["stdio", "--user", "local"]
-    }
-  }
-}
-```
-
-#### HTTP (remote)
-
-**CLI registration:**
-```bash
+# Register MCP client
 claude mcp add --transport http my-solution \
   https://your-service/ \
   --header "Authorization: Bearer USER_TOKEN"
 ```
-
-**Manual config** (`~/.claude.json` or `~/.gemini/settings.json`):
-```json
-{
-  "mcpServers": {
-    "my-solution": {
-      "url": "https://your-service/",
-      "headers": {
-        "Authorization": "Bearer ${MY_SOLUTION_TOKEN}"
-      }
-    }
-  }
-}
-```
-
-Both Claude Code and Gemini CLI support `${VAR}` expansion —
-reference a host environment variable instead of pasting tokens
-into config files.
-
-**Claude.ai / Claude mobile (remote via URL):**
-```
-https://your-service/?token=USER_TOKEN
-```
-
-Remote MCP servers added through Claude.ai are available across
-all Claude clients — web, mobile, and Claude Code.
 
 ## Gitignore
 
