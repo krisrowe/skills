@@ -27,16 +27,52 @@ into a dedicated skill if skill composition conventions emerge.
 
 ## Part 1: Sociable Unit Testing Philosophy
 
-### Core Principle
+### Background: Sociable vs Solitary
 
-Write tests that verify complete features or transactions
-end-to-end through your business logic layer — whether it's
-called SDK, core, lib, domain, or service layer. Do NOT write
-isolated "solitary" unit tests that mock internal collaborators.
-Mocking hides integration bugs — the exact class of bugs tests
-should catch.
+Jay Fields coined the terms "sociable" and "solitary" for
+two schools of unit testing. Martin Fowler popularized them:
 
-**No mocks unless you ask.** Isolate via temp dirs and env vars.
+- **Solitary tests** isolate the unit under test using mocks
+  or test doubles for all collaborators. The classically
+  "mockist" approach.
+- **Sociable tests** let the unit interact with real
+  implementations of its collaborators. Isolation comes from
+  controlling inputs and the environment, not from replacing
+  internal code with fakes.
+
+Fowler presents both as valid. This skill does not.
+
+### This Skill's Position
+
+**Write sociable tests. Avoid solitary tests.**
+
+The unit of testing is a **meaningful transaction** — a
+complete operation through the business logic layer (SDK,
+core, lib, domain, service — whatever the project calls it),
+not an individual function or module in isolation.
+
+**No mocks unless you ask.** Isolate via temp dirs and env
+vars, not by replacing collaborators with fakes.
+
+Micro-isolating tests to a function or module that alone
+cannot complete a meaningful transaction produces broad
+swaths of technical-sounding tests where it becomes difficult
+to assess what actual functionality is or isn't covered. When
+a test mocks every collaborator, it verifies that your code
+calls the mocks correctly, not that it works. The findings
+are over-isolated to the point of risky irrelevance: all
+tests pass, but the system is broken at the seams.
+
+This approach leads to repo pollution and bloat — hundreds of
+tests that are expensive to maintain, tightly coupled to
+implementation details (not behavior), and fragile to
+refactoring. Renaming an internal method breaks dozens of
+tests that were never verifying user-facing behavior in the
+first place.
+
+Reserve mocking for system boundaries where real
+collaboration is impractical — network calls, external
+services, clocks. Everywhere else, let the code run.
 
 ### Testing Hierarchy
 
@@ -69,16 +105,31 @@ reaching for any form of integration testing.
 
 ### What to Mock vs What NOT to Mock
 
-**Mock only at system boundaries:**
+The principle: **use the real thing when it's controllable and
+fast. Mock when it's uncontrollable or slow.** These two
+properties almost always go together, but not always — a local
+database is controllable but slow to spin up, so it belongs in
+integration tests, not unit tests.
+
+**Mock (uncontrollable or slow):**
 - Network calls (APIs, HTTP, external services)
 - System clocks (if time precision matters)
-- Heavy external processes
+- Heavy external processes (database servers, containers)
 
-**Never mock:**
-- Internal helper functions or classes
-- File system operations (use temp dirs instead)
-- Configuration parsers (write real config files to temp dirs)
-- Core layer methods called by interface layers (CLI, MCP, REST)
+**Don't mock (controllable and fast):**
+- File system operations — point at a temp dir instead
+- Configuration parsers — write real config files to temp dirs
+- Environment variables — set the real env var and revert it
+  when the test ends. Use your test framework's built-in env
+  management (e.g., `monkeypatch.setenv()` in pytest) rather
+  than raw env manipulation with manual cleanup — the
+  framework guarantees revert even if the test throws, and
+  handles parallel execution safely. This is not mocking; the
+  real environment is modified and restored.
+- Core layer methods called by interface layers
+- Ubiquitous CLI tools that are either too common to mention
+  as prerequisites (e.g., `git`) or are documented project
+  dependencies — run them for real against isolated temp dirs
 
 ### Choosing a Boundary Strategy
 
