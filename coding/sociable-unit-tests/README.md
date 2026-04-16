@@ -7,9 +7,12 @@ Sociable unit tests verify complete transactions through your business logic —
 The result: tests that actually catch integration bugs, the exact class of defects that mocked tests miss.
 
 **What this skill covers:**
-- When to mock (system boundaries only) vs when not to (everything else)
-- Directory isolation patterns for stateful operations
-- Transaction-level test design for your core/lib layer and optionally at programmable interface layers (CLI, MCP, API)
+- When to mock (uncontrollable or slow) vs when not to (controllable and fast)
+- Boundary strategies: mock at network call vs local provider with real data
+- Transaction-level test design for core/business logic and interface layers
+- Test infrastructure: directory layout, segregation, venv, Makefile, README templates
+- Integration test hierarchy: unit (default) → agent (when needed) → real-user (last resort)
+- Agent test patterns for LLM inference with controlled context
 - Test naming conventions that describe behavior, not implementation
 
 Cross-platform — works with any AI agent that supports the SKILL.md format.
