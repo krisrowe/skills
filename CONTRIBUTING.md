@@ -16,8 +16,6 @@ echoskill/
     capture-context/SKILL.md
   claude/              ← platform-specific (Claude Code only)
     sessions/SKILL.md
-  echomodel/           ← ecosystem-specific (assumes echomodel tooling)
-    author-mcp-app/SKILL.md
 ```
 
 Each skill is a directory containing a `SKILL.md` file. Each collection
@@ -35,7 +33,7 @@ gemini skills install <url> --path coding/skill-a
 
 # ecm — register the whole repo, auto-discovers collections
 ecm skills marketplace register echoskill <url>
-# produces: echoskill/coding, echoskill/prompting, echoskill/claude, echoskill/echomodel
+# produces: echoskill/coding, echoskill/prompting, echoskill/claude, …
 ```
 
 `gemini skills install` scans one level deep within a `--path` target
@@ -63,11 +61,15 @@ Tool Dependencies below).
 depend on platform-specific features. The collection name signals this
 — users installing `claude/` skills expect Claude Code.
 
-**Ecosystem-specific collections** (`echomodel/`): skills may assume
-the user has or is adopting ecosystem tooling (e.g., `mcp-app`, `gapp`).
-They should still support standard alternatives where practical but
-are allowed to recommend ecosystem tools as the primary path. The
-collection name signals this intent.
+**Ecosystem-specific collections** (named for the ecosystem they
+promote): skills may assume the user has or is adopting the
+ecosystem's tooling. They should still support standard
+alternatives where practical but are allowed to recommend the
+ecosystem's tools as the primary path. The collection name
+signals this intent. (None currently present in this repo —
+ecosystem-native skills may be co-located in their ecosystem's
+primary framework repo instead, e.g., `skills/` in the framework
+repo itself.)
 
 ## Adding a Skill
 
@@ -76,8 +78,9 @@ collection name signals this intent.
 3. Keep the `name` field matching the directory name
 4. Write platform-neutral instructions when possible
 5. If the skill is platform-specific, place it under `claude/` or `gemini/`
-6. If the skill promotes a specific ecosystem, place it under that
-   ecosystem's collection (e.g., `echomodel/`)
+6. If the skill promotes a specific ecosystem, consider whether
+   it belongs in an ecosystem-named collection here or co-located
+   with the ecosystem's primary framework repo
 
 ## Frontmatter
 
