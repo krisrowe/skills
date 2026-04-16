@@ -38,6 +38,35 @@ should catch.
 
 **No mocks unless you ask.** Isolate via temp dirs and env vars.
 
+### Testing Hierarchy
+
+Bias strongly toward sociable unit tests. Cover everything
+possible as fast, offline, deterministic unit tests before
+reaching for any form of integration testing.
+
+1. **Sociable unit tests** — the default. Every repo should
+   have these. Cover all business logic through the core layer
+   and interface layers using in-process testing (no network,
+   no credentials, no external systems). This is where the
+   vast majority of test value lives.
+
+2. **Agent integration tests** (`tests/integration/agent/`) —
+   add only when the repo's functionality involves LLM
+   inference that needs behavioral verification. Keep them
+   minimal, maximally reliable, and controlled. Do not look
+   for opportunities to add agent tests to every project.
+
+3. **Real-user integration tests** (`tests/integration/real-user/`)
+   — last resort. Add only when the repo's core functionality
+   depends largely or entirely on an external system that can
+   only be tested with real, private user accounts that are
+   not reusable across developers. Examples: proxying a
+   third-party API with no sandbox environment, wrapping a
+   platform where each developer must supply their own
+   credentials and account data. Avoid entirely if unit tests
+   with a local provider or contract testing can cover the
+   same ground.
+
 ### What to Mock vs What NOT to Mock
 
 **Mock only at system boundaries:**
@@ -245,14 +274,11 @@ tests/
     agent/                     # LLM inference tests (see Part 3)
 ```
 
-Not every repo needs every directory. Most repos have just
-`tests/unit/`. Add integration subdirectories as needed.
-
-The `real-user/` directory is for tests against third-party
-platforms you don't control (external APIs backed by
-user-specific data and accounts). Contributors cannot share a
-common backend configuration, so these tests are inherently
-unstable across operators of a public repo.
+Most repos need only `tests/unit/`. Do not add integration
+subdirectories speculatively — add them when a specific,
+unavoidable testing need arises that unit tests cannot cover.
+See the Testing Hierarchy in Part 1 for when each level is
+appropriate.
 
 ### Test Segregation
 
