@@ -443,6 +443,82 @@ make setup && pytest tests/integration/...  # bootstrap then run any suite
    template above
 10. Verify: bare `pytest` runs only unit tests
 
+### Documentation placement
+
+Where in the repo's docs the testing setup lives depends on the
+project's type, technicality, and how central testing is to
+someone cloning the repo. Acceptable placements:
+
+- **README.md** — a short `## Testing` section showing minimal
+  setup + invocation. Best when testing is central to what the
+  repo IS (a library, a CLI tool, a repo whose value proposition
+  includes its test suite).
+- **CONTRIBUTING.md** — fuller setup instructions alongside other
+  dev-workflow content. Best when the primary audience is
+  evaluate → select → install → use, and testing is mostly for
+  contributors.
+- **docs/TESTING.md** — the bulk of detail lives there, with a
+  short pointer from README or CONTRIBUTING. Best when the
+  testing story is detailed enough that including it inline would
+  dominate the surrounding doc.
+
+Any of these is fine. **When extending an existing repo, follow
+the precedent already established** — don't introduce a new
+location if the repo already has one of these patterns.
+Consistency within a codebase matters more than picking the
+"best" placement in the abstract.
+
+### Custom test runners (only if already present)
+
+A repo may carry a custom test runner script as an **optional
+alternative** to invoking `pytest` directly — e.g., `./runtests`,
+`./my-app test <options>`, or similar.
+
+**This skill never introduces such a script.** If a repo does not
+already have one, do not create one as part of any testing-setup
+task. The documented `make setup` + `pytest` path is the canonical
+entry point; a runner is pure convenience on top of it.
+
+When a runner **is** already present, enforce these compliance
+rules:
+
+1. **Pure stdlib.** The runner must run immediately after clone
+   with no prerequisites — no `make setup`, no manual venv
+   bootstrap, no `pip install`. Only the Python standard
+   library. Anyone with Python 3 can clone the repo and invoke
+   it.
+
+2. **Auto-bootstrap the same venv.** The runner must internally
+   perform the same venv setup that the README / CONTRIBUTING /
+   docs/TESTING.md documents as the manual prerequisite for
+   direct `pytest` invocation — same directory name (e.g.
+   `.venv/`), same dependency source (the project's declared dev
+   dependencies — `pyproject.toml`, `setup.py`,
+   `requirements*.txt`, or whatever the docs point at), same
+   activation approach. A contributor who runs `make setup` and
+   then uses `pytest` directly must be able to switch to the
+   runner (or vice versa) without the venv changing shape.
+
+3. **README documentation shows both paths.** When a runner
+   exists, the testing-setup doc must present it alongside bare
+   `pytest` and `make test`, so contributors know all paths lead
+   to the same outcome.
+
+4. **Runner is additive, never authoritative.** Everything the
+   runner does must be achievable by following the documented
+   manual setup + bare `pytest`. The runner is a shortcut, not
+   a parallel ecosystem. Test-behavior decisions (which tests
+   run, what `pytest.ini` filters apply, which environment
+   variables are set) stay in `pytest.ini` /
+   `pyproject.toml` / `conftest.py` — the runner just invokes
+   pytest after preparing the environment.
+
+If an existing runner violates any of these, bring it into
+compliance or remove it. A divergent runner is worse than no
+runner — it silently installs a different dependency set,
+documents an inconsistent setup, or claims to be a shortcut
+while actually being a second way to test.
+
 ---
 
 ## Part 3: Agent Tests
