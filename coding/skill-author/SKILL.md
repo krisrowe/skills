@@ -416,6 +416,59 @@ claude plugin install <plugin-name>@<marketplace> --scope user
 Skills bundled in plugins are managed by the plugin lifecycle, not
 by manual symlinks or copies.
 
+### Avoiding duplicate installs
+
+A skill can reach an agent through more than one channel:
+
+- **Plugin/extension bundle** — managed by the packaging layer's
+  install and update lifecycle.
+- **Standalone symlink** — a link from the user-scope skills
+  directory to a source repo. Live updates via `git pull`.
+- **Standalone copy** — a plain file in the user-scope skills
+  directory. Static snapshot, no link back.
+
+Each is valid alone. But when two channels deliver the same skill
+simultaneously, the agent's slash menu and skills listing show the
+skill twice, and whichever copy loads first may not be the one the
+user expected.
+
+**Rule: one channel per skill per machine.** If the user's installed
+plugin/extension already bundles the skill, do not also install it
+standalone. If they've chosen the symlink path, do not install the
+bundling plugin/extension.
+
+**Bundling scope (for authors of plugins/extensions):** a
+plugin/extension should bundle a skill only if the plugin's own
+machinery (its agents, hooks, MCP servers, native skills, or scripts)
+directly depends on that skill. Bundling a skill purely for user
+convenience — because it's useful alongside the plugin — is an
+"alt marketplace install" anti-pattern that creates the duplication
+problem above. General-purpose skills belong in their own marketplace;
+consumers install them separately.
+
+**When duplicates are already present, reconcile:**
+
+1. **Audit.** Search all install locations for the skill name —
+   user-scope skill directories for standalone copies and symlinks,
+   plugin/extension cache directories for bundled copies.
+2. **Classify.** For each hit, determine whether it is a bundled copy
+   (under a plugin/extension cache), a symlink to a source repo (run
+   `readlink` or `ls -la`), or a static standalone copy.
+3. **Pick one channel.** Prefer the channel already used for similar
+   skills on this machine — don't introduce a new pattern for a
+   single skill.
+4. **Remove the others.** Standalone copies and symlinks: delete from
+   the user-scope directory. Bundled copies: uninstall the bundling
+   plugin/extension — but only if that plugin as a whole is the
+   channel being dropped, not because it happens to bundle one
+   duplicate skill.
+5. **Restart the agent session** so menus and listings rebuild
+   against the resolved set.
+
+**The slash menu and skills listing are the warning signal.** If the
+same skill name appears more than once, a duplicate-install situation
+exists. Investigate before assuming one version is authoritative.
+
 ### Reconcile local installs with skills repo
 
 Skills drift when they exist in multiple places — the local platform
