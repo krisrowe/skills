@@ -122,7 +122,63 @@ docs, `CONTRIBUTING.md`) must link to every such file.
 
 If the repo has no `docs/` directory, skip this step.
 
-## Step 3: Create or update CLAUDE.md
+## Step 3: Ensure CONTRIBUTING.md declares a Version Management section
+
+Repos that ship a versioned artifact need a Version Management section
+in `CONTRIBUTING.md` — without it, contributors (and agents) reinvent
+the bump rules per change, miss bumps entirely, and downstream
+consumers stay on stale code because `pip install --upgrade` and
+`pipx install --upgrade` only re-install when the version number
+rises.
+
+This step is conditional on repo shape. Detect:
+
+| Shape | Signal | Version source of truth |
+|-------|--------|-------------------------|
+| Python package | `pyproject.toml` exists | `<pkg>/__init__.py` `__version__` (mirrored in `pyproject.toml`) |
+| Claude plugin | `.claude-plugin/plugin.json` exists | `version` field in `plugin.json` |
+| Both (a Python package distributed as a plugin) | both files present | bump both fields together in one commit |
+| Neither | no signal | skip this step |
+
+If the relevant shape applies and `CONTRIBUTING.md` has no Version
+Management section, propose adding one. The section must cover:
+
+- **Source(s) of truth** — name the file(s) and field(s) the version
+  lives in. Where two locations mirror (e.g., `__init__.py` and
+  `pyproject.toml`), state explicitly that both must move together
+  in the same commit.
+- **When to bump** — at minimum, a semver table mapping change type
+  to bump kind (patch / minor / major). Include a note that
+  documentation-only changes don't require a bump.
+- **Bump-with-change as the default** — the version moves in the
+  same commit as the change it ships with, not a separate commit.
+  This keeps history honest (one commit = one logical change at
+  one version) and avoids cluttering the log with bump-only commits.
+- **Catch-up bump rule** — if a runtime-touching change shipped
+  without a bump, fix it with a small follow-up commit titled
+  `Bump version to X.Y.Z` whose body briefly notes what unreleased
+  changes the bump covers. No `chore:` prefix — Conventional
+  Commits ceremony is only appropriate when the repo runs
+  `semantic-release`, `python-semantic-release`, `release-please`,
+  or a similar Conventional-Commits-aware release tool. Detect via
+  presence of `.releaserc*`, `release.config.*`, related
+  `pyproject.toml` config, or a release workflow under
+  `.github/workflows/`.
+- **Release workflow** — concrete commands for editing the version
+  file(s), committing, tagging (`vX.Y.Z` annotated), and pushing
+  with tags.
+
+**Field validation** for Python packages: the `__version__` value
+must equal the `pyproject.toml` `version` value. If they drift,
+flag it and propose a single commit that reconciles them.
+
+Do not write the section blindly — fill in the actual file paths,
+field names, and any project-specific bump-significance rules
+(e.g., a framework whose major version is also a contract version
+needs to call that out). When in doubt, model the section after a
+sibling repo's existing Version Management section.
+
+## Step 4: Create or update CLAUDE.md
 
 The file should use Claude Code's `@path` import syntax to pull README.md
 and CONTRIBUTING.md into context at session start. Do not put project-specific
@@ -137,7 +193,7 @@ should be:
 If additional lines already exist in CLAUDE.md (e.g., PII warnings for
 public repos), preserve them. Only add the `@` imports if missing.
 
-## Step 4: Create or update .gemini/settings.json
+## Step 5: Create or update .gemini/settings.json
 
 ```json
 {
@@ -153,7 +209,7 @@ public repos), preserve them. Only add the `@` imports if missing.
 If the file already exists, merge the context entries — don't overwrite
 other settings that may be present.
 
-## Step 5: Update .gitignore
+## Step 6: Update .gitignore
 
 Agent context directories (`.claude/`, `.gemini/`) contain a mix of
 versioned configuration and local-only state. The `.gitignore` must
@@ -178,7 +234,7 @@ Ensure these entries exist in `.gitignore`:
 Only add the `.claude/skills/` exception if the project actually has or
 will have project-scoped skills. Don't pre-create it speculatively.
 
-## Step 6: Verify git tracking
+## Step 7: Verify git tracking
 
 After modifying `.gitignore` or adding context/settings files for the
 first time, run `git status` and verify:
@@ -215,7 +271,7 @@ first time, run `git status` and verify:
    tracked, run `git check-ignore -v <path>` to confirm it is NOT
    ignored. For files that should stay excluded, confirm they ARE ignored.
 
-## Step 7: Security scan before committing
+## Step 8: Security scan before committing
 
 Before staging any file under `.claude/` or `.gemini/` for commit, scan
 its content for sensitive data:
@@ -240,7 +296,7 @@ read its full content and verify it contains nothing user-specific or
 sensitive before committing. This is especially important because these
 files are easy to commit reflexively with `git add .` without reviewing.
 
-## Step 8: Report
+## Step 9: Report
 
 Tell the user what was created or updated. Mention that both Claude Code
 and Gemini CLI will now load README.md and CONTRIBUTING.md as context, and
